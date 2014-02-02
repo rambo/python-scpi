@@ -2,16 +2,19 @@
 import time
 import re
 
-from exceptions import RuntimeError
+from exceptions import RuntimeError, ValueError
+from errors import Timeout, DeviceError
 
 
 class scpi(object):
     """Sends commands to the transport and parses return values"""
     def __init__(self, transport, *args, **kwargs):
+        super(scpi, self).__init__(*args, **kwargs)
         self.transport = transport
         self.transport.set_message_callback(self.message_received)
         self.message_stack = []
         self.error_format_regex = re.compile(r"([+-]\d+),\"(.*?)\"")
+        self.command_timeout = 1.5 # Seconds
     
     def message_received(self, message):
         print " *** Got message '%s' ***" % message
@@ -23,7 +26,7 @@ class scpi(object):
         match = self.error_format_regex.search(message)
         if not match:
             # PONDER: Make our own exceptions ??
-            raise RuntimeError("message '%s' does not have correct error format" % message)
+            raise ValueError("message '%s' does not have correct error format" % message)
         code = int(match.group(1))
         errstr = match.group(2)
         return (code, errstr)
@@ -38,20 +41,25 @@ class scpi(object):
                   and len(self.message_stack) < stack_size_start+1)
               ):
             time.sleep(0)
-            if ((time.time() - timeout_start) > 5):
-                # TODO: Make a separate timeoutexception
-                raise RuntimeError("Timeout: No response to '%s' (or timeout waiting for incoming_data())" % command)
+            if ((time.time() - timeout_start) > self.command_timeout):
+                raise Timeout(command, self.command_timeout)
 
     def send_command_and_check(self, command, expect_response=True):
         """Sends the command and makes sure it did not trigger errors"""
-        self.send_command(command, expect_response)
-        self.send_command("SYST:ERR?", True)
-        code, errstr = self.parse_error(self.message_stack[-1])
-        if code != 0:
-            # TODO: Make a separate scpiexception or something...
-            raise RuntimeError("Command '%s' returned error %d: %s" % (command, code, errstr))
-        # Pop the no-error out
-        self.message_stack.pop()
+        re_raise = None
+        try:
+            self.send_command(command, expect_response)
+        except (Timeout), e:
+            re_raise = e
+        finally:
+            self.send_command("SYST:ERR?", True)
+            code, errstr = self.parse_error(self.message_stack[-1])
+            if code != 0:
+                raise DeviceError(command, code, errstr)
+            # Pop the no-error out
+            self.message_stack.pop()
+            if re_raise:
+                raise re_raise
 
     def parse_number(self, message):
         """This is pretty trivial but just in case we want to change from floats to Decimals for example"""

@@ -1,3 +1,5 @@
+"""HP/Agilent 3362B specific device implementation and helpers"""
+
 import os,sys
 # Add the parent dir to search paths
 libs_dir = os.path.join(os.path.dirname( os.path.realpath( __file__ ) ),  '..',)

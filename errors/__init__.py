@@ -1,3 +1,4 @@
+"""SCPI module specific errors"""
 
 from exceptions import RuntimeError
 

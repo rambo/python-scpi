@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -i
+"""Simple helper to monitor serial port status and send raw commands over it"""
 import sys,os
 import time
 

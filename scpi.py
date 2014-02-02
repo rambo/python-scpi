@@ -3,7 +3,7 @@ import time
 import re
 
 from exceptions import RuntimeError, ValueError
-from errors import Timeout, DeviceError
+from errors import Timeout, CommandError
 
 
 class scpi(object):
@@ -55,7 +55,7 @@ class scpi(object):
             self.send_command("SYST:ERR?", True)
             code, errstr = self.parse_error(self.message_stack[-1])
             if code != 0:
-                raise DeviceError(command, code, errstr)
+                raise CommandError(command, code, errstr)
             # Pop the no-error out
             self.message_stack.pop()
             if re_raise:

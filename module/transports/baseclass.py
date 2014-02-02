@@ -12,6 +12,10 @@ class transports_base(object):
         """Initializes a transport"""
         pass
     
+    def quit(self, command):
+        """Must shutdown all background threads (if any)"""
+        raise NotImplementedError()
+
     def set_message_callback(self, callback):
         self.message_received = callback
 

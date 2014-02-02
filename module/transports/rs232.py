@@ -79,6 +79,16 @@ class transports_rs232(transports_base):
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
             #self.launcher_instance.unload_device(self.object_name)
 
+    def stop_serial(self):
+        """Stops the serial port thread and closes the port"""
+        self.serial_alive = False
+        self.receiver_thread.join()
+        self.serial_port.close()
+
+    def quit(self):
+        """Shuts down any background threads that might be active"""
+        self.stop_serial()
+
     def incoming_data(self):
         """It seems there is no better way to check for transaction-in-progress than this (I was hoping RI or some other modem signal would be used)"""
         return bool(self.serial_port.inWaiting())

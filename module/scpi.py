@@ -17,6 +17,10 @@ class scpi(object):
         self.command_timeout = 1.5 # Seconds
         self.ask_default_wait = 0 # Seconds
     
+    def quit(self):
+        """Shuts down any background threads that might be active"""
+        self.transport.quit()
+
     def message_received(self, message):
         #print " *** Got message '%s' ***" % message
         self.message_stack.append(message)
@@ -99,6 +103,10 @@ class scpi_device(object):
         self.scpi = scpi(transport)
         # always reset to known status on init
         self.reset()
+
+    def quit(self):
+        """Shuts down any background threads that might be active"""
+        self.scpi.quit()
 
     def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""

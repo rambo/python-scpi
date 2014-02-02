@@ -144,4 +144,10 @@ class scpi_device(object):
         """Returns the output state"""
         self.scpi.send_command("OUTP:STAT?", True)
         return self.scpi.pop_and_parse_boolean()
-        
+
+    def identify(self):
+        """Returns the identification data, standard order is Manufacturer, Model no, Serial no (or 0), Firmware version"""
+        self.scpi.send_command("*IDN?", True)
+        data = self.scpi.message_stack.pop()
+        return data.split(',')
+

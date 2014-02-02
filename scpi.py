@@ -11,7 +11,7 @@ class scpi(object):
         self.transport = transport
         self.transport.set_message_callback(self.message_received)
         self.message_stack = []
-        self.error_format_regex = self.board_ident_regex = re.compile(r"(+|-\d+),\"(.*?\")")
+        self.error_format_regex = re.compile(r"([+-]\d+),\"(.*?)\"")
     
     def message_received(self, message):
         print " *** Got message '%s' ***" % message
@@ -28,16 +28,30 @@ class scpi(object):
         errstr = match.group(2)
         return (code, errstr)
 
-    def send_command(self, command):
+    def send_command_and_wait(self, command, wait, expect_response=True):
+        """Sends the command, waits for the given time and then starts checking for response"""
         self.transport.send_command(command)
-        self.transport.send_command("SYST:ERR?")
-        # TODO: add timeout check
-        while(len(self.message_stack) == 0):
+        time.sleep(wait)
+        timeout_start = time.time()
+        while(   self.transport.incoming_data()
+              or (    expect_response
+                  and len(self.message_stack) == 0)
+              ):
             time.sleep(0)
-        code, errstr = self.parse_error(message)
+            if ((time.time() - timeout_start) > 5):
+                # TODO: Make a separate timeoutexception
+                raise RuntimeError("Timeout: No response to '%s' (or timeout waiting for incoming_data())" % command)
+            
+
+    def send_command_and_check(self, command, wait, expect_response=True):
+        self.send_command_and_wait(command, wait, expect_response)
+        self.send_command_and_wait("SYST:ERR?", 0.010, True)
+        code, errstr = self.parse_error(self.message_stack[-1])
         if code != 0:
             # TODO: Make a separate scpiexception or something...
             raise RuntimeError("Command '%s' returned error %d: %s" % (command, code, errstr))
+        # Pop the no-error out
+        self.message_stack.pop()
 
 
 
@@ -48,3 +62,13 @@ class scpi_device(object):
         """Initializes a device for the given transport"""
         super(scpi_device, self).__init__(*args, **kwargs)
         self.scpi = scpi(transport)
+        # always reset to known status
+        self.reset()
+
+    def reset(self):
+        """Resets the device to known state (with *RST) and clears the error log"""
+        self.scpi.send_command_and_wait("*RST;*CLS", 0.010, False)
+
+    def measure_voltage(self):
+        self.scpi.send_command_and_check("MEAS:SCAL:VOLT?", 1)
+        

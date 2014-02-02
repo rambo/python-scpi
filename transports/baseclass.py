@@ -22,3 +22,7 @@ class transports_base(object):
     def message_received(self, message):
         """Default message callback raises error"""
         raise RuntimeError("Message callback not set")
+
+    def incoming_data(self):
+        """Check whether we still have inbound data, must return boolean"""
+        raise NotImplementedError()

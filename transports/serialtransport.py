@@ -4,6 +4,7 @@ import threading
 import string
 import binascii
 import time
+import sys
 from baseclass import transports_base
 
 # basically a wrapper for Serial
@@ -68,6 +69,7 @@ class transports_serial(transports_base):
                 if (    len(self.input_buffer) > 0
                     and self.input_buffer[self._terminator_slice:] == self.line_terminator):
                     # Got a message, parse it (sans the CRLF) and empty the buffer
+                    #print "DEBUG: calling self.message_received()"
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = ""
 
@@ -77,6 +79,11 @@ class transports_serial(transports_base):
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
             #self.launcher_instance.unload_device(self.object_name)
 
+    def incoming_data(self):
+        """It seems there is no better way to check for transaction-in-progress than this (I was hoping RI or some other modem signal would be used)"""
+        return bool(self.serial_port.inWaiting())
+
     def send_command(self, command):
+        """Adds the line terminator and writes the command out"""
         send_str = command + self.line_terminator
         self.serial_port.write(send_str)

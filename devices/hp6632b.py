@@ -18,4 +18,6 @@ def serialport(port, **kwargs):
     from transports import serialtransport as serial_transport
     serial_port = pyserial.Serial(port, 9600, timeout=0, **kwargs)
     transport = serial_transport.transports_serial(serial_port)
+    dev = hp6632b(transport)
+    return dev
 

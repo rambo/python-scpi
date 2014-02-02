@@ -102,7 +102,7 @@ class scpi_device(object):
 
     def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
-        self.scpi.send_command("*RST;*CLS", False)
+        return self.scpi.send_command("*RST;*CLS", False)
 
     def measure_voltage(self, extra_params=""):
         """Returns the measured (scalar) actual output voltage (in volts), pass extra_params string to append to the command (like ":ACDC")"""
@@ -112,9 +112,17 @@ class scpi_device(object):
         """Returns the measured (scalar) actual output current (in amps), pass extra_params string to append to the command (like ":ACDC")"""
         return self.scpi.ask_number("MEAS:SCAL:CURR%s?" % extra_params)
 
+    def set_measure_current_max(self, amps):
+        """Sets the upper bound (in amps) of current to measure, on some devices low-current accuracy can be increased by keeping this low"""
+        return self.scpi.send_command_and_check("SENS:CURR:RANG %f" % amps, False)
+
+    def query_measure_current_max(self):
+        """Returns the upper bound (in amps) of current to measure, this is not neccessarily same number as set with set_measure_current_max"""
+        return self.scpi.ask_number("SENS:CURR:RANG?")
+
     def set_voltage(self, millivolts, extra_params=""):
         """Sets the desired output voltage (but does not auto-enable outputs) in millivolts, pass extra_params string to append to the command (like ":PROT")"""
-        self.scpi.send_command("SOUR:VOLT%s %f MV" % (extra_params, millivolts), False)
+        self.scpi.send_command_and_check("SOUR:VOLT%s %f MV" % (extra_params, millivolts), False)
 
     def query_voltage(self, extra_params=""):
         """Returns the set output voltage (in volts), pass extra_params string to append to the command (like ":PROT")"""
@@ -122,7 +130,7 @@ class scpi_device(object):
 
     def set_current(self, milliamps, extra_params=""):
         """Sets the desired output current (but does not auto-enable outputs) in milliamps, pass extra_params string to append to the command (like ":TRIG")"""
-        self.scpi.send_command("SOUR:CURR%s %f MA" % (extra_params, milliamps), False)
+        return self.scpi.send_command_and_check("SOUR:CURR%s %f MA" % (extra_params, milliamps), False)
 
     def query_current(self, extra_params=""):
         """Returns the set output current (in amps), pass extra_params string to append to the command (like ":TRIG")"""
@@ -130,11 +138,10 @@ class scpi_device(object):
 
     def set_output(self, state):
         """Enables/disables output"""
-        self.scpi.send_command("OUTP:STAT %d" % state, False)
+        return self.scpi.send_command_and_check("OUTP:STAT %d" % state, False)
 
     def query_output(self):
         """Returns the output state"""
         self.scpi.send_command("OUTP:STAT?", True)
         return self.scpi.pop_and_parse_boolean()
-
 

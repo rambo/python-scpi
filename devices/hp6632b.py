@@ -14,6 +14,19 @@ class hp6632b(scpi_device):
         super(hp6632b, self).__init__(transport, *args, **kwargs)
         self.scpi.ask_default_wait = 0.050 # Average aquisition time is 30ms + 20ms processing time
 
+    def set_low_current_mode(self, state):
+        """The low-current mode is enabled by setting the range to (max) 20mA, anything over that is high-current mode. This model has max 5A output"""
+        if state:
+            return self.set_measure_current_max(0.020)
+        return self.set_measure_current_max(5.0)
+
+    def query_low_current_mode(self):
+        """Returns boolean indicating whether we are in low or high current mode"""
+        max_current = self.query_measure_current_max()
+        if max_current <= 0.020:
+            return True
+        return False
+
 
 def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""

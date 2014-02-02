@@ -1,4 +1,4 @@
-"""Serial port transport helper"""
+"""Serial port transport layer"""
 import serial as pyserial
 import threading
 import string
@@ -64,7 +64,7 @@ class transports_rs232(transports_base):
                 # Put the data into inpit buffer and check for CRLF
                 self.input_buffer += data
                 # Trim prefix NULLs and linebreaks
-                self.input_buffer = self.input_buffer.lstrip(chr(0x0) + "\r\n")
+                self.input_buffer = self.input_buffer.lstrip(chr(0x0) + self.line_terminator)
                 #print "input_buffer=%s" % repr(self.input_buffer)
                 if (    len(self.input_buffer) > 0
                     and self.input_buffer[self._terminator_slice:] == self.line_terminator):

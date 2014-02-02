@@ -1,5 +1,6 @@
 """Serial port transport helper"""
-
+import serial
+import threading
 from baseclass import transports_base
 
 # basically a wrapper for Serial
@@ -27,15 +28,13 @@ class transports_serial(transports_base):
 
     def initialize_serial(self):
         """Creates a background thread for reading the serial port"""
-        import threading, serial
         self.input_buffer = ""
         self.receiver_thread = threading.Thread(target=self.serial_reader)
         self.receiver_thread.setDaemon(1)
         self.receiver_thread.start()
 
     def serial_reader(self):
-        import string,binascii
-        import serial # We need the exceptions from here
+        import string, binascii
         self.serial_alive = True
         try:
             while self.serial_alive:

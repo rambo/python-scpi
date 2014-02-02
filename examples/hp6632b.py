@@ -9,4 +9,7 @@ from devices import hp6632b
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print "run with python -i hp6632b.py /dev/ttyUSB0"
+        sys.exit(1)
     dev = hp6632b.serial(sys.argv[1])

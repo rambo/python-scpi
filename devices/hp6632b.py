@@ -14,8 +14,8 @@ class hp6632b(scpi_device):
         super(hp6632b, self).__init__(transport, *args, **kwargs)
 
 def serial(port, **kwargs):
-    import serial
+    import serial as pyserial
     from transports import serial as serial_transport
-    serial_port = serial.Serial(port, 9600, timeout=0, **kwargs)
+    serial_port = pyserial.Serial(port, 9600, timeout=0, **kwargs)
     transport = serial_transport.transports_serial(serial_port)
 

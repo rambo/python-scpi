@@ -18,7 +18,7 @@ class scpi(object):
         self.ask_default_wait = 0 # Seconds
     
     def message_received(self, message):
-        print " *** Got message '%s' ***" % message
+        #print " *** Got message '%s' ***" % message
         self.message_stack.append(message)
         pass
 
@@ -82,6 +82,7 @@ class scpi(object):
             force_wait = self.ask_default_wait
         self.send_command_and_check(command, True, force_wait)
         return self.pop_and_parse_number()
+        # TODO: Before returning check if there are leftover messages in the stack, that would not be a good thing...
 
 
 class scpi_device(object):
@@ -99,12 +100,28 @@ class scpi_device(object):
         self.scpi.send_command("*RST;*CLS", False)
 
     def measure_voltage(self, extra_params=""):
-        """Returns the measured (scalar) voltage, pass extra_params string to append to the command (like ":ACDC")"""
+        """Returns the measured (scalar) actual output voltage (in volts), pass extra_params string to append to the command (like ":ACDC")"""
         return self.scpi.ask_number("MEAS:SCAL:VOLT%s?" % extra_params)
 
     def measure_current(self, extra_params=""):
-        """Returns the measured current, pass extra_params string to append to the command (like ":ACDC")"""
+        """Returns the measured (scalar) actual output current (in amps), pass extra_params string to append to the command (like ":ACDC")"""
         return self.scpi.ask_number("MEAS:SCAL:CURR%s?" % extra_params)
+
+    def set_voltage(self, millivolts, extra_params=""):
+        """Sets the desired output voltage (but does not auto-enable outputs) in millivolts, pass extra_params string to append to the command (like ":PROT")"""
+        self.scpi.send_command("SOUR:VOLT%s %f MV" % (extra_params, millivolts), False)
+
+    def query_voltage(self, extra_params=""):
+        """Returns the set output voltage (in volts), pass extra_params string to append to the command (like ":PROT")"""
+        return self.scpi.ask_number("SOUR:VOLT%s?" % extra_params)
+
+    def set_current(self, milliamps, extra_params=""):
+        """Sets the desired output current (but does not auto-enable outputs) in milliamps, pass extra_params string to append to the command (like ":TRIG")"""
+        self.scpi.send_command("SOUR:CURR%s %f MA" % (extra_params, milliamps), False)
+
+    def query_current(self, extra_params=""):
+        """Returns the set output current (in amps), pass extra_params string to append to the command (like ":TRIG")"""
+        return self.scpi.ask_number("SOUR:CURR%s?" % extra_params)
 
 
 

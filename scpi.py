@@ -28,24 +28,23 @@ class scpi(object):
         errstr = match.group(2)
         return (code, errstr)
 
-    def send_command_and_wait(self, command, wait, expect_response=True):
+    def send_command(self, command, expect_response=True):
         """Sends the command, waits for the given time and then starts checking for response"""
+        stack_size_start = len(self.message_stack)
         self.transport.send_command(command)
-        time.sleep(wait)
         timeout_start = time.time()
         while(   self.transport.incoming_data()
               or (    expect_response
-                  and len(self.message_stack) == 0)
+                  and len(self.message_stack) < stack_size_start+1)
               ):
             time.sleep(0)
             if ((time.time() - timeout_start) > 5):
                 # TODO: Make a separate timeoutexception
                 raise RuntimeError("Timeout: No response to '%s' (or timeout waiting for incoming_data())" % command)
-            
 
-    def send_command_and_check(self, command, wait, expect_response=True):
-        self.send_command_and_wait(command, wait, expect_response)
-        self.send_command_and_wait("SYST:ERR?", 0.010, True)
+    def send_command_and_check(self, command, expect_response=True):
+        self.send_command(command, expect_response)
+        self.send_command("SYST:ERR?", True)
         code, errstr = self.parse_error(self.message_stack[-1])
         if code != 0:
             # TODO: Make a separate scpiexception or something...
@@ -67,8 +66,8 @@ class scpi_device(object):
 
     def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
-        self.scpi.send_command_and_wait("*RST;*CLS", 0.010, False)
+        self.scpi.send_command("*RST;*CLS", False)
 
     def measure_voltage(self):
-        self.scpi.send_command_and_check("MEAS:SCAL:VOLT?", 1)
+        self.scpi.send_command_and_check("MEAS:SCAL:VOLT?")
         

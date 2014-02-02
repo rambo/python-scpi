@@ -8,10 +8,10 @@ import sys
 from baseclass import transports_base
 
 # basically a wrapper for Serial
-class transports_serial(transports_base):
+class transports_rs232(transports_base):
     def __init__(self, port, *args, **kwargs):
         """Initializes a serial transport, requires open serial port and message callback as arguments"""
-        super(transports_serial, self).__init__(*args, **kwargs)
+        super(transports_rs232, self).__init__(*args, **kwargs)
         self.line_terminator = "\r\n"
         self._terminator_slice = -1*len(self.line_terminator)
         # For tracking state changes

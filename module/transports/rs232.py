@@ -73,7 +73,9 @@ class transports_rs232(transports_base):
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = ""
 
-        except (IOError, pyserial.SerialException), e:
+#        except (IOError, pyserial.SerialException), e:
+# something overwrites the module when running I get <type 'exceptions.AttributeError'>: 'NoneType' object has no attribute 'SerialException' if port fails...
+        except (IOError), e:
             print "Got exception %s" % e
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??

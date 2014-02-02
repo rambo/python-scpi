@@ -13,9 +13,9 @@ class hp6632b(scpi_device):
         """Initializes a device for the given transport"""
         super(hp6632b, self).__init__(transport, *args, **kwargs)
 
-def serial(port, **kwargs):
+def serialport(port, **kwargs):
     import serial as pyserial
-    from transports import serial as serial_transport
+    from transports import serialtransport as serial_transport
     serial_port = pyserial.Serial(port, 9600, timeout=0, **kwargs)
     transport = serial_transport.transports_serial(serial_port)
 

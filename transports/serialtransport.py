@@ -1,6 +1,9 @@
 """Serial port transport helper"""
-import serial
+import serial as pyserial
 import threading
+import string
+import binascii
+import time
 from baseclass import transports_base
 
 # basically a wrapper for Serial
@@ -34,7 +37,6 @@ class transports_serial(transports_base):
         self.receiver_thread.start()
 
     def serial_reader(self):
-        import string, binascii
         self.serial_alive = True
         try:
             while self.serial_alive:
@@ -69,7 +71,7 @@ class transports_serial(transports_base):
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = ""
 
-        except (IOError, serial.SerialException), e:
+        except (IOError, pyserial.SerialException), e:
             print "Got exception %s" % e
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??

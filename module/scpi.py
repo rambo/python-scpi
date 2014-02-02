@@ -32,7 +32,7 @@ class scpi(object):
         errstr = match.group(2)
         return (code, errstr)
 
-    def send_command(self, command, expect_response=True, force_wait=0):
+    def send_command_unchecked(self, command, expect_response=True, force_wait=0):
         """Sends the command, waits for all data to complete (and if response is expected for new entry to message stack).
         The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
         stack_size_start = len(self.message_stack)
@@ -47,16 +47,16 @@ class scpi(object):
             if ((time.time() - timeout_start) > self.command_timeout):
                 raise TimeoutError(command, self.command_timeout)
 
-    def send_command_and_check(self, command, expect_response=True, force_wait=0):
+    def send_command(self, command, expect_response=True, force_wait=0):
         """Sends the command and makes sure it did not trigger errors, in case of timeout checks if there was another underlying error and raises that instead
         The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
         re_raise = None
         try:
-            self.send_command(command, expect_response, force_wait)
+            self.send_command_unchecked(command, expect_response, force_wait)
         except (TimeoutError), e:
             re_raise = e
         finally:
-            self.send_command("SYST:ERR?", True)
+            self.send_command_unchecked("SYST:ERR?", True)
             code, errstr = self.parse_error(self.message_stack[-1])
             if code != 0:
                 raise CommandError(command, code, errstr)
@@ -80,7 +80,7 @@ class scpi(object):
         the request we can use this to avoid nasty race conditions"""
         if force_wait == None:
             force_wait = self.ask_default_wait
-        self.send_command_and_check(command, True, force_wait)
+        self.send_command(command, True, force_wait)
         return self.pop_and_parse_number()
         # TODO: Before returning check if there are leftover messages in the stack, that would not be a good thing...
 
@@ -102,7 +102,7 @@ class scpi_device(object):
 
     def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
-        return self.scpi.send_command("*RST;*CLS", False)
+        return self.scpi.send_command_unchecked("*RST;*CLS", False)
 
     def measure_voltage(self, extra_params=""):
         """Returns the measured (scalar) actual output voltage (in volts), pass extra_params string to append to the command (like ":ACDC")"""
@@ -114,7 +114,7 @@ class scpi_device(object):
 
     def set_measure_current_max(self, amps):
         """Sets the upper bound (in amps) of current to measure, on some devices low-current accuracy can be increased by keeping this low"""
-        return self.scpi.send_command_and_check("SENS:CURR:RANG %f" % amps, False)
+        return self.scpi.send_command("SENS:CURR:RANG %f" % amps, False)
 
     def query_measure_current_max(self):
         """Returns the upper bound (in amps) of current to measure, this is not neccessarily same number as set with set_measure_current_max"""
@@ -122,7 +122,7 @@ class scpi_device(object):
 
     def set_voltage(self, millivolts, extra_params=""):
         """Sets the desired output voltage (but does not auto-enable outputs) in millivolts, pass extra_params string to append to the command (like ":PROT")"""
-        self.scpi.send_command_and_check("SOUR:VOLT%s %f MV" % (extra_params, millivolts), False)
+        self.scpi.send_command("SOUR:VOLT%s %f MV" % (extra_params, millivolts), False)
 
     def query_voltage(self, extra_params=""):
         """Returns the set output voltage (in volts), pass extra_params string to append to the command (like ":PROT")"""
@@ -130,7 +130,7 @@ class scpi_device(object):
 
     def set_current(self, milliamps, extra_params=""):
         """Sets the desired output current (but does not auto-enable outputs) in milliamps, pass extra_params string to append to the command (like ":TRIG")"""
-        return self.scpi.send_command_and_check("SOUR:CURR%s %f MA" % (extra_params, milliamps), False)
+        return self.scpi.send_command("SOUR:CURR%s %f MA" % (extra_params, milliamps), False)
 
     def query_current(self, extra_params=""):
         """Returns the set output current (in amps), pass extra_params string to append to the command (like ":TRIG")"""
@@ -138,10 +138,10 @@ class scpi_device(object):
 
     def set_output(self, state):
         """Enables/disables output"""
-        return self.scpi.send_command_and_check("OUTP:STAT %d" % state, False)
+        return self.scpi.send_command("OUTP:STAT %d" % state, False)
 
     def query_output(self):
         """Returns the output state"""
         self.scpi.send_command("OUTP:STAT?", True)
         return self.scpi.pop_and_parse_boolean()
-
+        

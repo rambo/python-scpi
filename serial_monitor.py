@@ -82,6 +82,6 @@ class serial_monitor():
 
 if __name__ == '__main__':
     import serial
-    port = serial.Serial(sys.argv[1], 9600, timeout=0)
+    port = serial.Serial(sys.argv[1], 9600, rtscts=False, timeout=0)
     monitor = serial_monitor(port)
     

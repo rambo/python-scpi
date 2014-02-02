@@ -8,4 +8,14 @@ from scpi import scpi_device
 
 class hp6632b(scpi_device):
     """Adds the HP/Agilent 3362B specific SCPI commands as methods"""
-    pass
+
+    def __init__(self, transport, *args, **kwargs):
+        """Initializes a device for the given transport"""
+        super(hp6632b, self).__init__(transport, *args, **kwargs)
+
+def serial(port, **kwargs):
+    import serial
+    from transports import serial as serial_transport
+    serial_port = serial.Serial(port, 9600, timeout=0, **kwargs)
+    transport = serial_transport.transports_serial(serial_port)
+

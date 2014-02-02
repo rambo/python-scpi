@@ -84,6 +84,11 @@ class scpi(object):
         return self.pop_and_parse_number()
         # TODO: Before returning check if there are leftover messages in the stack, that would not be a good thing...
 
+    def pop_and_parse_boolean(self):
+        """Pops the last value from message stack and parses it as boolean"""
+        data = self.message_stack.pop()
+        return bool(int(data))
+
 
 class scpi_device(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set"""
@@ -123,5 +128,13 @@ class scpi_device(object):
         """Returns the set output current (in amps), pass extra_params string to append to the command (like ":TRIG")"""
         return self.scpi.ask_number("SOUR:CURR%s?" % extra_params)
 
+    def set_output(self, state):
+        """Enables/disables output"""
+        self.scpi.send_command("OUTP:STAT %d" % state, False)
+
+    def query_output(self):
+        """Returns the output state"""
+        self.scpi.send_command("OUTP:STAT?", True)
+        return self.scpi.pop_and_parse_boolean()
 
 

@@ -3,7 +3,7 @@ import time
 import re
 
 from exceptions import RuntimeError, ValueError
-from errors import Timeout, CommandError
+from errors import TimeoutError, CommandError
 
 
 class scpi(object):
@@ -15,6 +15,7 @@ class scpi(object):
         self.message_stack = []
         self.error_format_regex = re.compile(r"([+-]\d+),\"(.*?)\"")
         self.command_timeout = 1.5 # Seconds
+        self.ask_default_wait = 0 # Seconds
     
     def message_received(self, message):
         print " *** Got message '%s' ***" % message
@@ -31,10 +32,12 @@ class scpi(object):
         errstr = match.group(2)
         return (code, errstr)
 
-    def send_command(self, command, expect_response=True):
-        """Sends the command, waits for all data to complete (and if response is expected for new entry to message stack)"""
+    def send_command(self, command, expect_response=True, force_wait=0):
+        """Sends the command, waits for all data to complete (and if response is expected for new entry to message stack).
+        The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
         stack_size_start = len(self.message_stack)
         self.transport.send_command(command)
+        time.sleep(force_wait)
         timeout_start = time.time()
         while(   self.transport.incoming_data()
               or (    expect_response
@@ -42,14 +45,15 @@ class scpi(object):
               ):
             time.sleep(0)
             if ((time.time() - timeout_start) > self.command_timeout):
-                raise Timeout(command, self.command_timeout)
+                raise TimeoutError(command, self.command_timeout)
 
-    def send_command_and_check(self, command, expect_response=True):
-        """Sends the command and makes sure it did not trigger errors"""
+    def send_command_and_check(self, command, expect_response=True, force_wait=0):
+        """Sends the command and makes sure it did not trigger errors, in case of timeout checks if there was another underlying error and raises that instead
+        The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
         re_raise = None
         try:
-            self.send_command(command, expect_response)
-        except (Timeout), e:
+            self.send_command(command, expect_response, force_wait)
+        except (TimeoutError), e:
             re_raise = e
         finally:
             self.send_command("SYST:ERR?", True)
@@ -70,9 +74,13 @@ class scpi(object):
         data = self.message_stack.pop()
         return self.parse_number(data)
 
-    def ask_number(self, command):
-        """Sends the command (checking for errors), then pops and parses the last line as number"""
-        self.send_command_and_check(command)
+    def ask_number(self, command, force_wait=None):
+        """Sends the command (checking for errors), then pops and parses the last line as number
+        The force_wait parameter is in seconds (or none to use instance default), if we know the device is going to take a while processing
+        the request we can use this to avoid nasty race conditions"""
+        if force_wait == None:
+            force_wait = self.ask_default_wait
+        self.send_command_and_check(command, True, force_wait)
         return self.pop_and_parse_number()
 
 

@@ -12,6 +12,8 @@ class hp6632b(scpi_device):
     def __init__(self, transport, *args, **kwargs):
         """Initializes a device for the given transport"""
         super(hp6632b, self).__init__(transport, *args, **kwargs)
+        self.scpi.ask_default_wait = 0.050 # Average aquisition time is 30ms + 20ms processing time
+
 
 def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""

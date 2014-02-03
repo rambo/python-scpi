@@ -1,6 +1,6 @@
 #!/usr/bin/env python -i
 """Simple helper to monitor serial port status and send raw commands over it"""
-import sys,os
+import os,sys
 import time
 
 
@@ -82,6 +82,7 @@ class serial_monitor():
         self.serial_port.write(send_str)
 
 if __name__ == '__main__':
+    os.environ['PYTHONINSPECT'] = '1'
     import serial
     port = serial.Serial(sys.argv[1], 9600, rtscts=False, timeout=0)
     monitor = serial_monitor(port)

@@ -20,3 +20,7 @@ The following statement shows how to send a device clear over the GPIB interface
 The following statement shows how to send a device clear over the GPIB interface using the GPIB command library for C or QuickBASIC: 
     IOCLEAR (705)
 NOTE:	For RS-232 operation, sending a Break will perform the same operation as the IEE-488 device clear message."""
+
+in the RS232 transport check getCD to make sure the device is present before doing anything.
+CTS can also be checked even if hw flow control is not in use.
+

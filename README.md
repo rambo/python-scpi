@@ -9,7 +9,7 @@ A device specific implementation can then add the device-specific commands.
 
 ## TODO
 
-Implement device-clear
+### Implement device-clear
 
 """
 Using Device Clear
@@ -20,3 +20,11 @@ The following statement shows how to send a device clear over the GPIB interface
 The following statement shows how to send a device clear over the GPIB interface using the GPIB command library for C or QuickBASIC: 
     IOCLEAR (705)
 NOTE:	For RS-232 operation, sending a Break will perform the same operation as the IEE-488 device clear message."""
+
+### Check Carrier-Detect for RS232 transport
+
+Basically wait for it for X seconds and abort if not found
+
+### Flow-control for RS232 transport
+
+Figure out what is the problem

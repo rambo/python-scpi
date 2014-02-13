@@ -23,6 +23,9 @@ NOTE:	For RS-232 operation, sending a Break will perform the same operation as t
 
 ### Check Carrier-Detect for RS232 transport
 
+in the RS232 transport check getCD to make sure the device is present before doing anything.
+CTS can also be checked even if hw flow control is not in use.
+
 Basically wait for it for X seconds and abort if not found
 
 ### Flow-control for RS232 transport

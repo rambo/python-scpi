@@ -30,3 +30,7 @@ class transports_base(object):
     def incoming_data(self):
         """Check whether we still have inbound data, must return boolean"""
         raise NotImplementedError()
+
+    def abort_command(self):
+        """Send the "device clear" command to abort a running command"""
+        raise NotImplementedError()

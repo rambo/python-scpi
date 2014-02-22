@@ -5,6 +5,7 @@ import re
 from exceptions import RuntimeError, ValueError
 from errors import TimeoutError, CommandError
 
+#TODO: We might need a MUTEX if the transport is accessed from threads
 
 class scpi(object):
     """Sends commands to the transport and parses return values"""
@@ -105,7 +106,6 @@ class scpi(object):
         data = self.message_stack.pop()
         return bool(int(data))
 
-
 class scpi_device(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set"""
 
@@ -123,6 +123,10 @@ class scpi_device(object):
     def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
         return self.scpi.send_command_unchecked("*RST;*CLS", False)
+
+    def abort(self):
+        """Tells the transport layer to issue "Device clear" to abort the command currently hanging"""
+        return self.scpi.transport.abort_command()
 
     def measure_voltage(self, extra_params=""):
         """Returns the measured (scalar) actual output voltage (in volts), pass extra_params string to append to the command (like ":ACDC")"""

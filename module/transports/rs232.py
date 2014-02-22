@@ -27,6 +27,7 @@ class transports_rs232(transports_base):
             'getRI': None,
             'getCD': None
         }
+        self.print_debug = False
         self.serial_port = port
         self.initialize_serial()
 
@@ -55,14 +56,15 @@ class transports_rs232(transports_base):
                 data = self.serial_port.read(1)
                 if len(data) == 0:
                     continue
-                # hex-encode unprintable characters
-#               if data not in string.letters.join(string.digits).join(string.punctuation).join("\r\n"):
-#                    sys.stdout.write("\\0x".join(binascii.hexlify(data)))
-                # OTOH repr was better afterall
-                if data not in self.line_terminator:
-                    sys.stdout.write(repr(data))
-                else:
-                    sys.stdout.write(data)
+                if self.print_debug:
+                    # hex-encode unprintable characters
+                    #if data not in string.letters.join(string.digits).join(string.punctuation).join("\r\n"):
+                    #     sys.stdout.write("\\0x".join(binascii.hexlify(data)))
+                    # OTOH repr was better afterall
+                    if data not in self.line_terminator:
+                        sys.stdout.write(repr(data))
+                    else:
+                        sys.stdout.write(data)
                 # Put the data into inpit buffer and check for CRLF
                 self.input_buffer += data
                 # Trim prefix NULLs and linebreaks
@@ -82,6 +84,12 @@ class transports_rs232(transports_base):
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
             #self.launcher_instance.unload_device(self.object_name)
+
+    def abort_command(self):
+        """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:
+ - The input and output buffers of the dc source are cleared.
+ - The dc source is prepared to accept a new command string."""
+        self.serial_port.sendBreak()
 
     def stop_serial(self):
         """Stops the serial port thread and closes the port"""

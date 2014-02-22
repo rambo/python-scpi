@@ -28,6 +28,3 @@ CTS can also be checked even if hw flow control is not in use.
 
 Basically wait for it for X seconds and abort if not found
 
-### Flow-control for RS232 transport
-
-Figure out what is the problem

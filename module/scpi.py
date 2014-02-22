@@ -68,16 +68,16 @@ class scpi(object):
         except (TimeoutError), e:
             re_raise = e
         finally:
-            self.check_error()
+            self.check_error(command)
             if re_raise:
                 raise re_raise
 
-    def check_error(self):
+    def check_error(self, command_was):
         """Checks the last error code and raises CommandError if the code is not 0 ("No error")"""
         self.send_command_unchecked("SYST:ERR?", True)
         code, errstr = self.parse_error(self.message_stack[-1])
         if code != 0:
-            raise CommandError(command, code, errstr)
+            raise CommandError(command_was, code, errstr)
         # Pop the no-error out
         self.message_stack.pop()
 
@@ -102,7 +102,7 @@ class scpi(object):
             self.send_command_unchecked(command, True, force_wait)
         except (TimeoutError), e:
             # This will raise the correct error in case we got a timeout waiting for the input
-            self.check_error()
+            self.check_error(command)
             # If there was not error, re-raise the timeout
             raise e
         return self.pop_and_parse_number()

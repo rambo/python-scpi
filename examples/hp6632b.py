@@ -14,5 +14,5 @@ if __name__ == '__main__':
         sys.exit(1)
     # Then put to interactive mode
     os.environ['PYTHONINSPECT'] = '1'
-    dev = hp6632b.rs232(sys.argv[1])
+    dev = hp6632b.rs232(sys.argv[1], rtscts=True)
     atexit.register(dev.quit)

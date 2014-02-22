@@ -84,6 +84,7 @@ class scpi(object):
         the request we can use this to avoid nasty race conditions"""
         if force_wait == None:
             force_wait = self.ask_default_wait
+        # TODO: Maybe check error opnly if we do not get a response ??
         self.send_command(command, True, force_wait)
         return self.pop_and_parse_number()
         # TODO: Before returning check if there are leftover messages in the stack, that would not be a good thing...

@@ -34,6 +34,8 @@ class serial_monitor():
         import string,binascii
         import serial # We need the exceptions from here
         self.serial_alive = True
+        if self.serial_port.rtscts:
+            self.serial_port.setRTS(True)
         try:
             while self.serial_alive:
                 for method in self._current_states:
@@ -78,12 +80,16 @@ class serial_monitor():
         pass
 
     def send_command(self, command):
+        if self.serial_port.rtscts:
+            while not self.serial_port.getCTS():
+                # Yield while waiting for CTS
+                time.sleep(0)
         send_str = command + self.line_terminator
         self.serial_port.write(send_str)
 
 if __name__ == '__main__':
     os.environ['PYTHONINSPECT'] = '1'
     import serial
-    port = serial.Serial(sys.argv[1], 9600, rtscts=False, timeout=0)
-    monitor = serial_monitor(port)
+    p = serial.Serial(sys.argv[1], 9600, rtscts=True, timeout=0)
+    m = serial_monitor(p)
     

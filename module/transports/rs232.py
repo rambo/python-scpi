@@ -1,4 +1,4 @@
-"""Serial port transport layer"""
+"""Serial port transport layer, uses RTS/CTS for flow-control"""
 import serial as pyserial
 import threading
 import string
@@ -39,6 +39,8 @@ class transports_rs232(transports_base):
 
     def serial_reader(self):
         self.serial_alive = True
+        if self.serial_port.rtscts:
+            self.serial_port.setRTS(True)
         try:
             while self.serial_alive:
                 for method in self._current_states:
@@ -97,5 +99,9 @@ class transports_rs232(transports_base):
 
     def send_command(self, command):
         """Adds the line terminator and writes the command out"""
+        if self.serial_port.rtscts:
+            while not self.serial_port.getCTS():
+                # Yield while waiting for CTS
+                time.sleep(0)
         send_str = command + self.line_terminator
         self.serial_port.write(send_str)

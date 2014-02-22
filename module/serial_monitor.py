@@ -43,6 +43,7 @@ class serial_monitor():
                     if self._current_states[method] != self._previous_states[method]:
                         print " *** %s changed to %d *** " % (method, self._current_states[method])
                         self._previous_states[method] = self._current_states[method]
+                rd, wd, ed  = select.select([ self.serial_port, ], [], [ self.serial_port, ], 5) # Wait up to 5s for new data
                 if not self.serial_port.inWaiting():
                     # Don't try to read if there is no data, instead sleep (yield) a bit
                     time.sleep(0)

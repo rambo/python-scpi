@@ -6,7 +6,7 @@ from exceptions import RuntimeError, ValueError
 from errors import TimeoutError, CommandError
 import decimal
 
-#TODO: We might need a MUTEX if the transport is accessed from threads
+from threading import Lock
 
 class scpi(object):
     """Sends commands to the transport and parses return values"""
@@ -18,6 +18,7 @@ class scpi(object):
         self.error_format_regex = re.compile(r"([+-]\d+),\"(.*?)\"")
         self.command_timeout = 1.5 # Seconds
         self.ask_default_wait = 0 # Seconds
+        self.transport_lock = Lock()
     
     def quit(self):
         """Shuts down any background threads that might be active"""
@@ -41,17 +42,22 @@ class scpi(object):
     def send_command_unchecked(self, command, expect_response=True, force_wait=0):
         """Sends the command, waits for all data to complete (and if response is expected for new entry to message stack).
         The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
-        stack_size_start = len(self.message_stack)
-        self.transport.send_command(command)
-        time.sleep(force_wait)
-        timeout_start = time.time()
-        while(   self.transport.incoming_data()
-              or (    expect_response
-                  and len(self.message_stack) < stack_size_start+1)
-              ):
-            time.sleep(0)
-            if ((time.time() - timeout_start) > self.command_timeout):
-                raise TimeoutError(command, self.command_timeout)
+        self.transport_lock.acquire()
+        try:
+            stack_size_start = len(self.message_stack)
+            self.transport.send_command(command)
+            time.sleep(force_wait)
+            timeout_start = time.time()
+            while(   self.transport.incoming_data()
+                  or (    expect_response
+                      and len(self.message_stack) < stack_size_start+1)
+                  ):
+                time.sleep(0)
+                if ((time.time() - timeout_start) > self.command_timeout):
+                    raise TimeoutError(command, self.command_timeout)
+                    # PONDER: We might want to auto-call abort_command() ? or maybe it's better handled by a decorator or something ??
+        finally:
+            self.transport_lock.release()
 
     def send_command(self, command, expect_response=True, force_wait=0):
         """Sends the command and makes sure it did not trigger errors, in case of timeout checks if there was another underlying error and raises that instead
@@ -107,6 +113,10 @@ class scpi(object):
         data = self.message_stack.pop()
         return bool(int(data))
 
+    def abort_command(self):
+        """Shortcut to the transports abort_command call"""
+        self.transport.abort_command()
+
 class scpi_device(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set"""
 
@@ -127,7 +137,7 @@ class scpi_device(object):
 
     def abort(self):
         """Tells the transport layer to issue "Device clear" to abort the command currently hanging"""
-        return self.scpi.transport.abort_command()
+        return self.scpi.abort_command()
 
     def measure_voltage(self, extra_params=""):
         """Returns the measured (scalar) actual output voltage (in volts), pass extra_params string to append to the command (like ":ACDC")"""

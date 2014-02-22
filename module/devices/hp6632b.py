@@ -40,7 +40,7 @@ class hp6632b(scpi_device):
         return self.scpi.send_command("SYST:LOC", False)
 
     def set_rwlock(self, state=True):
-        """RS232 only, prevent any button mashing on the fron panel, this switches between SYSTem:RWLock and SYSTem:LOCal according to state, this overrides previous value set with set_remote_mode"""
+        """RS232 only, prevent *any* button mashing on the fron panel, this switches between SYSTem:RWLock and SYSTem:LOCal according to state, this overrides previous value set with set_remote_mode"""
         from transports import rs232 as serial_transport
         if not isinstance(self.scpi.transport, serial_transport.transports_rs232):
             from exceptions import RuntimeError

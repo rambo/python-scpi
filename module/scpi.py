@@ -4,6 +4,7 @@ import re
 
 from exceptions import RuntimeError, ValueError
 from errors import TimeoutError, CommandError
+import decimal
 
 #TODO: We might need a MUTEX if the transport is accessed from threads
 
@@ -76,7 +77,7 @@ class scpi(object):
 
     def parse_number(self, message):
         """This is pretty trivial but just in case we want to change from floats to Decimals for example"""
-        return float(message)
+        return decimal.Decimal(message)
 
     def pop_and_parse_number(self):
         """Pops the last value from message stack and parses number from it"""

@@ -60,14 +60,18 @@ class scpi(object):
         except (TimeoutError), e:
             re_raise = e
         finally:
-            self.send_command_unchecked("SYST:ERR?", True)
-            code, errstr = self.parse_error(self.message_stack[-1])
-            if code != 0:
-                raise CommandError(command, code, errstr)
-            # Pop the no-error out
-            self.message_stack.pop()
+            self.check_error()
             if re_raise:
                 raise re_raise
+
+    def check_error(self):
+        """Checks the last error code and raises CommandError if the code is not 0 ("No error")"""
+        self.send_command_unchecked("SYST:ERR?", True)
+        code, errstr = self.parse_error(self.message_stack[-1])
+        if code != 0:
+            raise CommandError(command, code, errstr)
+        # Pop the no-error out
+        self.message_stack.pop()
 
     def parse_number(self, message):
         """This is pretty trivial but just in case we want to change from floats to Decimals for example"""
@@ -85,9 +89,16 @@ class scpi(object):
         if force_wait == None:
             force_wait = self.ask_default_wait
         # TODO: Maybe check error opnly if we do not get a response ??
-        self.send_command(command, True, force_wait)
+        re_raise = None
+        try:
+            self.send_command_unchecked(command, True, force_wait)
+        except (TimeoutError), e:
+            # This will raise the correct error in case we got a timeout waiting for the input
+            self.check_error()
+            # If there was not error, re-raise the timeout
+            raise e
         return self.pop_and_parse_number()
-        # TODO: Before returning check if there are leftover messages in the stack, that would not be a good thing...
+        # PONDER: Before returning check if there are leftover messages in the stack, that would not be a good thing...
 
     def pop_and_parse_boolean(self):
         """Pops the last value from message stack and parses it as boolean"""

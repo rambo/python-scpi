@@ -29,6 +29,24 @@ class hp6632b(scpi_device):
             return True
         return False
 
+    def measure_current_autorange(self, extra_params=""):
+        """Measures the current, then make sure we are running on the correct measurement range and if not switch range and measure again"""
+        ret = self.measure_current(extra_params)
+        if ret < 0.020:
+            # We need to be in low-current mode
+            if not self.query_low_current_mode():
+                # Enter low current mode and measure again
+                self.set_low_current_mode(True)
+                return self.measure_current(extra_params)
+            else:
+                return ret
+        # We need to be in high-current mode
+        if self.query_low_current_mode():
+            # Switch mode and measure again
+            self.set_low_current_mode(False)
+            return self.measure_current(extra_params)
+        return ret
+
     def set_remote_mode(self, state=True):
         """RS232 only, prevent accidental button mashing on the fron panel, this switches between SYSTem:REMote and SYSTem:LOCal according to state, this overrides previous value set with set_rwlock"""
         from transports import rs232 as serial_transport

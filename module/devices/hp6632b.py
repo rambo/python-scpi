@@ -32,7 +32,7 @@ class hp6632b(scpi_device):
     def measure_current_autorange(self, extra_params=""):
         """Measures the current, then make sure we are running on the correct measurement range and if not switch range and measure again"""
         ret = self.measure_current(extra_params)
-        if ret < 0.020:
+        if abs(ret) < 0.020:
             # We need to be in low-current mode
             if not self.query_low_current_mode():
                 # Enter low current mode and measure again

@@ -2,6 +2,7 @@
 """Simple helper to monitor serial port status and send raw commands over it"""
 import os,sys
 import time
+import select
 
 
 class serial_monitor():

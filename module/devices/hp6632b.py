@@ -67,6 +67,12 @@ class hp6632b(scpi_device):
             return self.scpi.send_command("SYST:RWL", False)
         return self.scpi.send_command("SYST:LOC", False)
 
+    def display_on(self,  state=True):
+        """Sets display on/off"""
+        if state:
+            return self.scpi.send_command("DISP ON", False)
+        return self.scpi.send_command("DISP OFF", False)
+            
 
 def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""

@@ -67,12 +67,30 @@ class hp6632b(scpi_device):
             return self.scpi.send_command("SYST:RWL", False)
         return self.scpi.send_command("SYST:LOC", False)
 
-    def display_on(self,  state=True):
+    def display_on(self, state=True):
         """Sets display on/off"""
         if state:
             return self.scpi.send_command("DISP ON", False)
         return self.scpi.send_command("DISP OFF", False)
-            
+
+    def set_display_mode(self, mode):
+        """Set the display mode, valied values are NORM and TEXT"""
+        mode = mode.upper()
+        if not mode in ( 'NORM', 'TEXT' ):
+            raise RuntimeError("Invalid mode %s, valid ones are NORM and TEXT" % mode)
+        return self.scpi.send_command("DISP:MODE %s" % mode, False)
+
+    def set_display_text(self, text):
+        """Used to display text on the display, max 14 characters, NOTE: does *not* set display mode, you need to do it yourself"""
+        if len(text) > 14:
+            raise RuntimeError("Max text length is 14 characters")
+        if (    '"' in text
+            and "'" in text):
+            raise RuntimeError("Text may only contain either single or double quotes, not both")
+        if '"' in text:
+            return self.scpi.send_command("DISP:TEXT '%s'" % text, False)
+        return self.scpi.send_command('DISP:TEXT  "%s"' % text, False)
+        
 
 def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""

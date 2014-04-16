@@ -64,6 +64,7 @@ class scpi(object):
         The force_wait parameter is in seconds, if we know the device is going to take a while processing the request we can use this to avoid nasty race conditions"""
         re_raise = None
         try:
+            # PONDER: auto-add ";*WAI" ??
             self.send_command_unchecked(command, expect_response, force_wait)
         except (TimeoutError), e:
             re_raise = e

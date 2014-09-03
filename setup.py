@@ -5,7 +5,8 @@ git_version = str(subprocess.check_output(['git', 'rev-parse', '--verify', '--sh
 
 setup(
     name='scpi',
-    version='0.5.dev-%s' % git_version,
+#    version='0.5.dev-%s' % git_version,
+    version='0.5',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=['scpi',],

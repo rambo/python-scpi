@@ -12,7 +12,7 @@ setup(
     license='GNU LGPL',
     long_description=open('README.md').read(),
     install_requires=[
-        'pyserial>=2.0',
+        'pyserial>=2.7',
     ],
     url='https://github.com/rambo/python-scpi',
 )

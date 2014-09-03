@@ -7,6 +7,8 @@ Basic idea here is to make transport-independent command sender/parser and a dev
 
 A device specific implementation can then add the device-specific commands.
 
+Pro tip for thos wishing to work on the code <http://guide.python-distribute.org/pip.html#installing-from-a-vcs>
+
 ## TODO
 
 ### Check Carrier-Detect for RS232 transport

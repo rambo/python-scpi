@@ -49,8 +49,8 @@ class hp6632b(scpi_device):
 
     def set_remote_mode(self, state=True):
         """RS232 only, prevent accidental button mashing on the fron panel, this switches between SYSTem:REMote and SYSTem:LOCal according to state, this overrides previous value set with set_rwlock"""
-        from transports import rs232 as serial_transport
-        if not isinstance(self.scpi.transport, serial_transport.transports_rs232):
+        from scpi.transports import rs232 
+        if not isinstance(self.scpi.transport, rs232):
             from exceptions import RuntimeError
             raise RuntimeError("Only usable with RS232 transports")
         if state:

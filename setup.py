@@ -11,6 +11,7 @@ setup(
     packages=['scpi',],
     license='GNU LGPL',
     long_description=open('README.md').read(),
+    description='Implement SCPI in pure Python',
     install_requires=[
         'pyserial>=2.7',
     ],

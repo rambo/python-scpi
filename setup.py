@@ -9,8 +9,8 @@ except subprocess.CalledProcessError,e:
 
 setup(
     name='scpi',
-    #version='0.6.1dev-%s' % git_version,
-    version='0.6.3',
+    #version='0.6.4dev-%s' % git_version,
+    version='0.6.4',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=['scpi',],
@@ -22,4 +22,3 @@ setup(
     ],
     url='https://github.com/rambo/python-scpi',
 )
-

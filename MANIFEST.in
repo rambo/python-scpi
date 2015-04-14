@@ -1,4 +1,3 @@
 include README.md
-include scpi/errors/*
-include scpi/devices/*
-include scpi/transports/*
+recursive-include scpi *.py
+recursive-exclude scpi ._*

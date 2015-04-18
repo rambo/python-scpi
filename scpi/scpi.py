@@ -3,7 +3,7 @@ import time
 import re
 
 from exceptions import RuntimeError, ValueError
-from errors import TimeoutError, CommandError
+from .errors import TimeoutError, CommandError
 import decimal
 
 from threading import Lock

@@ -10,8 +10,8 @@ except subprocess.CalledProcessError,e:
 
 setup(
     name='scpi',
-    #version='0.6.5dev-%s' % git_version,
-    version='0.6.5',
+    version='0.6.6dev-%s' % git_version,
+    #version='0.6.6',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=[ 'scpi', 'scpi.errors', 'scpi.transports', 'scpi.devices' ],

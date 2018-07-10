@@ -1,13 +1,15 @@
 """Serial port transport layer, uses RTS/CTS for flow-control"""
-import serial as pyserial
-import threading
-import string
 import binascii
-import time
-import sys
-import select
-from .baseclass import transports_base
 import logging
+import select
+import string
+import sys
+import threading
+import time
+
+import serial as pyserial
+
+from .baseclass import transports_base
 
 logger = logging.getLogger('serialmonitor')
 
@@ -54,7 +56,7 @@ class transports_rs232(transports_base):
                     if self._current_states[method] != self._previous_states[method]:
                         logger.info(" *** {:s} changed to {:d} *** ".format(method, self._current_states[method]))
                         self._previous_states[method] = self._current_states[method]
-                rd, wd, ed  = select.select([ self.serial_port, ], [], [ self.serial_port, ], 5) # Wait up to 5s for new data
+                rd, wd, ed = select.select([self.serial_port, ], [], [self.serial_port, ], 5)  # Wait up to 5s for new data
                 if not self.serial_port.inWaiting():
                     # Don't try to read if there is no data, instead sleep (yield) a bit
                     time.sleep(0)
@@ -71,11 +73,11 @@ class transports_rs232(transports_base):
                 self.input_buffer += data
                 # Trim prefix NULLs and linebreaks
                 self.input_buffer = self.input_buffer.lstrip(b'\0' + self.line_terminator)
-                #print "input_buffer=%s" % repr(self.input_buffer)
-                if (    len(self.input_buffer) > 0
-                    and self.input_buffer[self._terminator_slice:] == self.line_terminator):
+                # print "input_buffer=%s" % repr(self.input_buffer)
+                if (len(self.input_buffer) > 0
+                        and self.input_buffer[self._terminator_slice:] == self.line_terminator):
                     # Got a message, parse it (sans the CRLF) and empty the buffer
-                    #print "DEBUG: calling self.message_received()"
+                    # print "DEBUG: calling self.message_received()"
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = b''
 
@@ -85,7 +87,7 @@ class transports_rs232(transports_base):
             logger.exception("Reader failed")
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
-            #self.launcher_instance.unload_device(self.object_name)
+            # self.launcher_instance.unload_device(self.object_name)
 
     def abort_command(self):
         """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:

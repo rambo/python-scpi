@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-import os,sys
-# Add the parent dir to search paths
-#libs_dir = os.path.join(os.path.dirname( os.path.realpath( __file__ ) ),  '..')
-#if os.path.isdir(libs_dir):                                       
-#    sys.path.append(libs_dir)
+import atexit
+import os
+import sys
 
 from scpi.devices import hp6632b
-import atexit
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

@@ -1,12 +1,6 @@
 """HP/Agilent 3362B specific device implementation and helpers"""
-
-#import os,sys
-## Add the parent dir to search paths
-#libs_dir = os.path.join(os.path.dirname( os.path.realpath( __file__ ) ),  '..',)
-#if os.path.isdir(libs_dir):                                       
-#    sys.path.append(libs_dir)
-
 from scpi import scpi_device
+
 
 class hp6632b(scpi_device):
     """Adds the HP/Agilent 3362B specific SCPI commands as methods"""
@@ -14,7 +8,7 @@ class hp6632b(scpi_device):
     def __init__(self, transport, *args, **kwargs):
         """Initializes a device for the given transport"""
         super(hp6632b, self).__init__(transport, *args, **kwargs)
-        self.scpi.ask_default_wait = 0.050 # Average aquisition time is 30ms + 20ms processing time
+        self.scpi.ask_default_wait = 0.050  # Average aquisition time is 30ms + 20ms processing time
 
     def set_low_current_mode(self, state):
         """The low-current mode is enabled by setting the range to (max) 20mA, anything over that is high-current mode. This model has max 5A output"""
@@ -49,7 +43,7 @@ class hp6632b(scpi_device):
 
     def set_remote_mode(self, state=True):
         """RS232 only, prevent accidental button mashing on the fron panel, this switches between SYSTem:REMote and SYSTem:LOCal according to state, this overrides previous value set with set_rwlock"""
-        from scpi.transports import rs232 
+        from scpi.transports import rs232
         if not isinstance(self.scpi.transport, rs232):
             from exceptions import RuntimeError
             raise RuntimeError("Only usable with RS232 transports")
@@ -75,7 +69,7 @@ class hp6632b(scpi_device):
     def set_display_mode(self, mode):
         """Set the display mode, valied values are NORM and TEXT"""
         mode = mode.upper()
-        if not mode in ( 'NORM', 'TEXT' ):
+        if not mode in ('NORM', 'TEXT'):
             raise RuntimeError("Invalid mode %s, valid ones are NORM and TEXT" % mode)
         return self.scpi.send_command("DISP:MODE %s" % mode, False)
 
@@ -83,13 +77,13 @@ class hp6632b(scpi_device):
         """Used to display text on the display, max 14 characters, NOTE: does *not* set display mode, you need to do it yourself"""
         if len(text) > 14:
             raise RuntimeError("Max text length is 14 characters")
-        if (    '"' in text
-            and "'" in text):
+        if ('"' in text
+                and "'" in text):
             raise RuntimeError("Text may only contain either single or double quotes, not both")
         if '"' in text:
             return self.scpi.send_command("DISP:TEXT '%s'" % text, False)
         return self.scpi.send_command('DISP:TEXT  "%s"' % text, False)
-        
+
 
 def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""
@@ -100,4 +94,3 @@ def rs232(port, **kwargs):
     transport = serial_transport(serial_port)
     dev = hp6632b(transport)
     return dev
-

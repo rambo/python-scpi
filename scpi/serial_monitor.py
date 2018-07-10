@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Simple helper to monitor serial port status and send raw commands over it"""
-import time
-import select
 import logging
+import select
+import time
 
 logger = logging.getLogger('serialmonitor')
 
@@ -27,15 +27,17 @@ class serial_monitor():
         self.initialize_serial()
 
     def initialize_serial(self):
-        import threading, serial
+        import threading
+        import serial
         self.input_buffer = ""
         self.receiver_thread = threading.Thread(target=self.serial_reader)
         self.receiver_thread.setDaemon(1)
         self.receiver_thread.start()
 
     def serial_reader(self):
-        import string,binascii
-        import serial # We need the exceptions from here
+        import string
+        import binascii
+        import serial  # We need the exceptions from here
         self.serial_alive = True
         if self.serial_port.rtscts:
             self.serial_port.setRTS(True)
@@ -46,7 +48,7 @@ class serial_monitor():
                     if self._current_states[method] != self._previous_states[method]:
                         logger.info(" *** {:s} changed to {:d} *** ".format(method, self._current_states[method]))
                         self._previous_states[method] = self._current_states[method]
-                rd, wd, ed  = select.select([ self.serial_port, ], [], [ self.serial_port, ], 5) # Wait up to 5s for new data
+                rd, wd, ed = select.select([self.serial_port, ], [], [self.serial_port, ], 5)  # Wait up to 5s for new data
                 if not self.serial_port.inWaiting():
                     # Don't try to read if there is no data, instead sleep (yield) a bit
                     time.sleep(0)
@@ -63,9 +65,9 @@ class serial_monitor():
                 self.input_buffer += data
                 # Trim prefix NULLs and linebreaks
                 self.input_buffer = self.input_buffer.lstrip(chr(0x0) + "\r\n")
-                #print "input_buffer=%s" % repr(self.input_buffer)
-                if (    len(self.input_buffer) > 0
-                    and self.input_buffer[self._terminator_slice:] == self.line_terminator):
+                # print "input_buffer=%s" % repr(self.input_buffer)
+                if (len(self.input_buffer) > 0
+                        and self.input_buffer[self._terminator_slice:] == self.line_terminator):
                     # Got a message, parse it (sans the CRLF) and empty the buffer
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = ""
@@ -74,7 +76,7 @@ class serial_monitor():
             logger.exception("reader failed")
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
-            #self.launcher_instance.unload_device(self.object_name)
+            # self.launcher_instance.unload_device(self.object_name)
 
     def message_received(self, message):
         self.logger.info(" *** Got message '{:s}' *** ".format(message))
@@ -88,11 +90,12 @@ class serial_monitor():
         send_str = command + self.line_terminator
         self.serial_port.write(send_str)
 
+
 if __name__ == '__main__':
-    import os, sys
+    import os
+    import sys
     # Funky way to get us to "interactive" mode
     os.environ['PYTHONINSPECT'] = '1'
     import serial
     p = serial.Serial(sys.argv[1], 9600, rtscts=True, timeout=0)
     m = serial_monitor(p)
-    

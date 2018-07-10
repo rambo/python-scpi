@@ -10,6 +10,7 @@ class TimeoutError(RuntimeError):
     def __str__(self):
         return "'%s' timed out after %f seconds" % (self.command, self.time)
 
+
 class CommandError(RuntimeError):
     def __init__(self, command, code, message, *args, **kwargs):
         self.command = command
@@ -19,4 +20,3 @@ class CommandError(RuntimeError):
 
     def __str__(self):
         return "'%s' returned error %d: %s" % (self.command, self.code, self.message)
-

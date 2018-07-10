@@ -8,7 +8,7 @@ class transports_base(object):
     def __init__(self):
         """Initializes a transport"""
         pass
-    
+
     def quit(self, command):
         """Must shutdown all background threads (if any)"""
         raise NotImplementedError()

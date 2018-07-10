@@ -1,30 +1,31 @@
 """Generic SCPI commands, allow sending and reading of raw data, helpers to parse information"""
-import time
-import re
-
-from .errors import TimeoutError, CommandError
 import decimal
-
+import re
+import time
 from threading import Lock
+
+from .errors import CommandError, TimeoutError
+
 
 class scpi(object):
     """Sends commands to the transport and parses return values"""
+
     def __init__(self, transport, *args, **kwargs):
         super(scpi, self).__init__(*args, **kwargs)
         self.transport = transport
         self.transport.set_message_callback(self.message_received)
         self.message_stack = []
         self.error_format_regex = re.compile(r"([+-]\d+),\"(.*?)\"")
-        self.command_timeout = 1.5 # Seconds
-        self.ask_default_wait = 0 # Seconds
+        self.command_timeout = 1.5  # Seconds
+        self.ask_default_wait = 0  # Seconds
         self.transport_lock = Lock()
-    
+
     def quit(self):
         """Shuts down any background threads that might be active"""
         self.transport.quit()
 
     def message_received(self, message):
-        #print " *** Got message '%s' ***" % message
+        # print " *** Got message '%s' ***" % message
         if not isinstance(message, str):
             message = message.decode('ascii')
         self.message_stack.append(message)
@@ -49,8 +50,8 @@ class scpi(object):
             self.transport.send_command(command)
             time.sleep(force_wait)
             timeout_start = time.time()
-            while(   self.transport.incoming_data()
-                  or (    expect_response
+            while(self.transport.incoming_data()
+                  or (expect_response
                       and len(self.message_stack) < stack_size_start+1)
                   ):
                 time.sleep(0)
@@ -118,6 +119,7 @@ class scpi(object):
     def abort_command(self):
         """Shortcut to the transports abort_command call"""
         self.transport.abort_command()
+
 
 class scpi_device(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set"""
@@ -187,4 +189,3 @@ class scpi_device(object):
         self.scpi.send_command("*IDN?", True)
         data = self.scpi.message_stack.pop()
         return data.split(',')
-

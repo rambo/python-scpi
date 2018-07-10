@@ -1,8 +1,8 @@
-from distutils.core import setup
 import subprocess
 import sys
+from distutils.core import setup
 
-if sys.version_info < (3,5):
+if sys.version_info < (3, 5):
     raise RuntimeError("Minimum version python 3.5")
 
 git_version = 'UNKNOWN'
@@ -15,10 +15,10 @@ except subprocess.CalledProcessError as e:
 setup(
     name='scpi',
     version='2.0.0dev-%s' % git_version,
-    #version='2.0.0',
+    # version='2.0.0',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
-    packages=[ 'scpi', 'scpi.errors', 'scpi.transports', 'scpi.devices' ],
+    packages=['scpi', 'scpi.errors', 'scpi.transports', 'scpi.devices'],
     license='GNU LGPL',
     long_description=open('README.md', 'rt', encoding='utf-8').read(),
     description='Implement SCPI in pure Python',

@@ -96,7 +96,7 @@ def rs232(port, **kwargs):
     # TODO: figure out why I can't communicate with rtscts enabled (try dsrdtr as well)
     import serial as pyserial
     from scpi.transports import rs232 as serial_transport
-    serial_port = pyserial.Serial(port, 9600, timeout=0, **kwargs)
+    serial_port = pyserial.serial_for_url(port, 9600, timeout=0, **kwargs)
     transport = serial_transport(serial_port)
     dev = hp6632b(transport)
     return dev

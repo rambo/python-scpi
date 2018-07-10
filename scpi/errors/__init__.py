@@ -1,7 +1,5 @@
 """SCPI module specific errors"""
 
-from exceptions import RuntimeError
-
 
 class TimeoutError(RuntimeError):
     def __init__(self, command, time, *args, **kwargs):

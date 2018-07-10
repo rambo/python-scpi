@@ -1,8 +1,10 @@
-#!/usr/bin/env python -i
+#!/usr/bin/env python3
 """Simple helper to monitor serial port status and send raw commands over it"""
-import os,sys
 import time
 import select
+import logging
+
+logger = logging.getLogger('serialmonitor')
 
 
 class serial_monitor():
@@ -42,7 +44,7 @@ class serial_monitor():
                 for method in self._current_states:
                     self._current_states[method] = getattr(self.serial_port, method)()
                     if self._current_states[method] != self._previous_states[method]:
-                        print " *** %s changed to %d *** " % (method, self._current_states[method])
+                        logger.info(" *** {:s} changed to {:d} *** ".format(method, self._current_states[method]))
                         self._previous_states[method] = self._current_states[method]
                 rd, wd, ed  = select.select([ self.serial_port, ], [], [ self.serial_port, ], 5) # Wait up to 5s for new data
                 if not self.serial_port.inWaiting():
@@ -52,9 +54,6 @@ class serial_monitor():
                 data = self.serial_port.read(1)
                 if len(data) == 0:
                     continue
-                # hex-encode unprintable characters
-#               if data not in string.letters.join(string.digits).join(string.punctuation).join("\r\n"):
-#                    sys.stdout.write("\\0x".join(binascii.hexlify(data)))
                 # OTOH repr was better afterall
                 if data not in self.line_terminator:
                     sys.stdout.write(repr(data))
@@ -71,14 +70,14 @@ class serial_monitor():
                     self.message_received(self.input_buffer[:self._terminator_slice])
                     self.input_buffer = ""
 
-        except (IOError, serial.SerialException), e:
-            print "Got exception %s" % e
+        except (IOError, serial.SerialException) as e:
+            logger.exception("reader failed")
             self.serial_alive = False
             # It seems we cannot really call this from here, how to detect the problem in main thread ??
             #self.launcher_instance.unload_device(self.object_name)
 
     def message_received(self, message):
-        print " *** Got message '%s' *** " % message
+        self.logger.info(" *** Got message '{:s}' *** ".format(message))
         pass
 
     def send_command(self, command):
@@ -90,6 +89,8 @@ class serial_monitor():
         self.serial_port.write(send_str)
 
 if __name__ == '__main__':
+    import os, sys
+    # Funky way to get us to "interactive" mode
     os.environ['PYTHONINSPECT'] = '1'
     import serial
     p = serial.Serial(sys.argv[1], 9600, rtscts=True, timeout=0)

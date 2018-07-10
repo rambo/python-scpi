@@ -3,9 +3,6 @@
 All transports must define certain basic methods (check all the raise NotImplementedError)
 """
 
-from exceptions import NotImplementedError
-from exceptions import RuntimeError
-
 
 class transports_base(object):
     def __init__(self):

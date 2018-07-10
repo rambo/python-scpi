@@ -1,119 +1,56 @@
-"""Serial port transport layer, uses RTS/CTS for flow-control"""
-import binascii
+"""Serial port transport layer"""
 import logging
-import select
-import string
-import sys
-import threading
-import time
 
-import serial as pyserial
+import serial
+import serial.threaded
 
-from .baseclass import transports_base
+from .baseclass import BaseTransport
 
-logger = logging.getLogger('serialmonitor')
+logger = logging.getLogger(__name__)
+
+WRITE_TIMEOUT = 1.0
 
 
-# basically a wrapper for Serial
-class transports_rs232(transports_base):
-    def __init__(self, port, *args, **kwargs):
-        """Initializes a serial transport, requires open serial port and message callback as arguments"""
-        super(transports_rs232, self).__init__(*args, **kwargs)
-        self.line_terminator = b'\r\n'
-        self._terminator_slice = -1*len(self.line_terminator)
-        # For tracking state changes
-        self._previous_states = {
-            'getCTS': None,
-            'getDSR': None,
-            'getRI': None,
-            'getCD': None
-        }
-        self._current_states = {
-            'getCTS': None,
-            'getDSR': None,
-            'getRI': None,
-            'getCD': None
-        }
-        self.print_debug = False
-        self.serial_port = port
-        self.initialize_serial()
+class RS232SerialProtocol(serial.threaded.LineReader):
+    """PySerial "protocol" class for handling stuff"""
 
-    def initialize_serial(self):
-        """Creates a background thread for reading the serial port"""
-        self.input_buffer = b''
-        self.receiver_thread = threading.Thread(target=self.serial_reader)
-        self.receiver_thread.setDaemon(1)
-        self.receiver_thread.start()
+    def connection_made(self, transport):
+        """Overridden to make sure we have write_timeout set"""
+        super().connection_made(transport)
+        # Make sure we have a write timeout of expected size
+        self.transport.write_timeout = WRITE_TIMEOUT
 
-    def serial_reader(self):
-        self.serial_alive = True
-        if self.serial_port.rtscts:
-            self.serial_port.setRTS(True)
-        try:
-            while self.serial_alive:
-                for method in self._current_states:
-                    self._current_states[method] = getattr(self.serial_port, method)()
-                    if self._current_states[method] != self._previous_states[method]:
-                        logger.info(" *** {:s} changed to {:d} *** ".format(method, self._current_states[method]))
-                        self._previous_states[method] = self._current_states[method]
-                rd, wd, ed = select.select([self.serial_port, ], [], [self.serial_port, ], 5)  # Wait up to 5s for new data
-                if not self.serial_port.inWaiting():
-                    # Don't try to read if there is no data, instead sleep (yield) a bit
-                    time.sleep(0)
-                    continue
-                data = self.serial_port.read(1)
-                if len(data) == 0:
-                    continue
-                if self.print_debug:
-                    if data not in self.line_terminator:
-                        sys.stdout.write(repr(data))
-                    else:
-                        sys.stdout.write(data)
-                # Put the data into inpit buffer and check for CRLF
-                self.input_buffer += data
-                # Trim prefix NULLs and linebreaks
-                self.input_buffer = self.input_buffer.lstrip(b'\0' + self.line_terminator)
-                # print "input_buffer=%s" % repr(self.input_buffer)
-                if (len(self.input_buffer) > 0
-                        and self.input_buffer[self._terminator_slice:] == self.line_terminator):
-                    # Got a message, parse it (sans the CRLF) and empty the buffer
-                    # print "DEBUG: calling self.message_received()"
-                    self.message_received(self.input_buffer[:self._terminator_slice])
-                    self.input_buffer = b''
+    def handle_line(self, line):
+        raise RuntimeError("This should have been overloaded by RS232Transport")
 
-#        except (IOError, pyserial.SerialException), e:
-# something overwrites the module when running I get <type 'exceptions.AttributeError'>: 'NoneType' object has no attribute 'SerialException' if port fails...
-        except (IOError) as e:
-            logger.exception("Reader failed")
-            self.serial_alive = False
-            # It seems we cannot really call this from here, how to detect the problem in main thread ??
-            # self.launcher_instance.unload_device(self.object_name)
+
+class RS232Transport(BaseTransport):
+    """Uses PySerials ReaderThread in the background to save us some pain"""
+    serialhandler = None
+
+    def __init__(self, serial_device):
+        self.serialhandler = serial.threaded.ReaderThread(serial_device, RS232SerialProtocol)
+        self.serialhandler.protocol.handle_line = self.message_received
+        self.serialhandler.start()
+
+    def send_command(self, command):
+        """Wrapper for send_line on the protocol"""
+        if not self.serialhandler or not self.serialhandler.is_alive():
+            raise RuntimeError("Serial handler not ready")
+        self.serialhandler.protocol.write_line(command)
 
     def abort_command(self):
         """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:
  - The input and output buffers of the dc source are cleared.
  - The dc source is prepared to accept a new command string."""
-        self.serial_port.sendBreak()
-
-    def stop_serial(self):
-        """Stops the serial port thread and closes the port"""
-        self.serial_alive = False
-        self.receiver_thread.join()
-        self.serial_port.close()
+        self.serialhandler.serial.send_break()
 
     def quit(self):
-        """Shuts down any background threads that might be active"""
-        self.stop_serial()
+        """Closes the port and background threads"""
+        self.close()
 
-    def incoming_data(self):
-        """It seems there is no better way to check for transaction-in-progress than this (I was hoping RI or some other modem signal would be used)"""
-        return bool(self.serial_port.inWaiting())
 
-    def send_command(self, command):
-        """Adds the line terminator and writes the command out"""
-        if self.serial_port.rtscts:
-            while not self.serial_port.getCTS():
-                # Yield while waiting for CTS
-                time.sleep(0)
-        send_str = command.encode('ascii') + self.line_terminator
-        self.serial_port.write(send_str)
+def get(serial_url, **serial_kwargs):
+    """Shorthand for creating the port from url and initializing the transport"""
+    port = serial.serial_for_url(serial_url, **serial_kwargs)
+    return RS232Transport(port)

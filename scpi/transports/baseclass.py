@@ -2,31 +2,35 @@
 
 All transports must define certain basic methods (check all the raise NotImplementedError)
 """
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class transports_base(object):
-    def __init__(self):
-        """Initializes a transport"""
-        pass
+class BaseTransport(object):
+    """Baseclass for SCPI tranport layers, abstracts away details, must be subclasses to implement"""
+    message_callback = None
+    unsolicited_message_callback = None
 
-    def quit(self, command):
+    def quit(self):
         """Must shutdown all background threads (if any)"""
         raise NotImplementedError()
-
-    def set_message_callback(self, callback):
-        self.message_received = callback
 
     def send_command(self, command):
         """Sends a complete command to the device, line termination etc is handled by the transport"""
         raise NotImplementedError()
 
     def message_received(self, message):
-        """Default message callback raises error"""
-        raise RuntimeError("Message callback not set")
-
-    def incoming_data(self):
-        """Check whether we still have inbound data, must return boolean"""
-        raise NotImplementedError()
+        """Passes the message to the callback expecting it, or to the unsolicited callback"""
+        if self.message_callback is not None:
+            self.message_callback(message)
+            self.message_callback = None
+            return
+        # Fall-through for unsolicited messages
+        if self.unsolicited_message_callback is not None:
+            self.unsolicited_message_callback(message)
+            return
+        logger.info("Got unsolicited message but have no callback to send it to")
 
     def abort_command(self):
         """Send the "device clear" command to abort a running command"""

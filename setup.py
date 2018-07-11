@@ -1,25 +1,33 @@
-from distutils.core import setup
+import os
 import subprocess
+import sys
+
+import setuptools
+
+if sys.version_info < (3, 5):
+    raise RuntimeError("Minimum version python 3.5")
 
 git_version = 'UNKNOWN'
 try:
-    git_version = str(subprocess.check_output(['git', 'rev-parse', '--verify', '--short', 'HEAD'])).strip()
-except subprocess.CalledProcessError,e:
-    #print "Got error when trying to read git version: %s" % e
+    git_version = subprocess.check_output(['git', 'rev-parse', '--verify', '--short', 'HEAD']).decode('ascii').strip()
+except subprocess.CalledProcessError as e:
     pass
 
-setup(
+setuptools.setup(
     name='scpi',
-    version='0.6.6dev-%s' % git_version,
-    #version='0.6.6',
+    version=os.getenv('PACKAGE_VERSION', '2.0.0+git.%s' % git_version),
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
-    packages=[ 'scpi', 'scpi.errors', 'scpi.transports', 'scpi.devices' ],
+    packages=setuptools.find_packages(),
     license='GNU LGPL',
-    long_description=open('README.md').read(),
+    long_description=open('README.md', 'rt', encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
     description='Implement SCPI in pure Python',
-    install_requires=[
-        'pyserial>=2.7',
-    ],
+    install_requires=open('requirements.txt', 'rt', encoding='utf-8').readlines(),
     url='https://github.com/rambo/python-scpi',
+    classifiers=(
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3 :: Only",
+        "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2) ",
+    ),
 )

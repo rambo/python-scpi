@@ -1,3 +1,2 @@
 """Transport layers for the SCPI module"""
-from .baseclass import BaseTransport as base
-from .rs232 import transports_rs232 as rs232
+from .rs232 import RS232Transport

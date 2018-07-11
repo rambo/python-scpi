@@ -30,24 +30,26 @@ class RS232Transport(BaseTransport):
 
     def __init__(self, serial_device):
         self.serialhandler = serial.threaded.ReaderThread(serial_device, RS232SerialProtocol)
-        self.serialhandler.protocol.handle_line = self.message_received
         self.serialhandler.start()
+        self.serialhandler.protocol.handle_line = self.message_received
 
-    def send_command(self, command):
+    async def send_command(self, command):
         """Wrapper for send_line on the protocol"""
         if not self.serialhandler or not self.serialhandler.is_alive():
             raise RuntimeError("Serial handler not ready")
-        self.serialhandler.protocol.write_line(command)
+        with (await self.lock):
+            self.serialhandler.protocol.write_line(command)
 
-    def abort_command(self):
+    async def abort_command(self):
         """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:
  - The input and output buffers of the dc source are cleared.
  - The dc source is prepared to accept a new command string."""
-        self.serialhandler.serial.send_break()
+        with (await self.lock):
+            self.serialhandler.serial.send_break()
 
     def quit(self):
         """Closes the port and background threads"""
-        self.close()
+        self.serialhandler.close()
 
 
 def get(serial_url, **serial_kwargs):

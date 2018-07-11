@@ -14,7 +14,7 @@ class BaseTransport(object):
     unsolicited_message_callback = None
     lock = asyncio.Lock()
 
-    def quit(self):
+    async def quit(self):
         """Must shutdown all background threads (if any)"""
         raise NotImplementedError()
 

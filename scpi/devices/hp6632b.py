@@ -78,7 +78,7 @@ class HP6632B(SCPIDevice):
             raise RuntimeError("Text may only contain either single or double quotes, not both")
         if '"' in text:
             return await self.command("DISP:TEXT '%s'" % text)
-        return self.command('DISP:TEXT  "%s"' % text)
+        return await self.command('DISP:TEXT  "%s"' % text)
 
 
 def rs232(port, **kwargs):

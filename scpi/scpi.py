@@ -19,13 +19,13 @@ class SCPIProtocol(object):
     def __init__(self, transport):
         self.transport = transport
 
-    def quit(self):
+    async def quit(self):
         """Shuts down any background threads that might be active"""
-        self.transport.quit()
+        await self.transport.quit()
 
-    def abort_command(self):
+    async def abort_command(self):
         """Shortcut to the transports abort_command call"""
-        self.transport.abort_command()
+        await self.transport.abort_command()
 
     async def get_error(self):
         """Asks for the error code and string"""
@@ -99,11 +99,12 @@ class SCPIProtocol(object):
 class SCPIDevice(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set"""
     protocol = None
-    lock = asyncio.Lock()
     command = None
     ask = None
 
     def __init__(self, protocol, use_safe_variants=True):
+        """Initialize device with protocol instance, if use_safe_variants is True (default) then we will
+        do the automatic error checking for each command, set to false to take care of it yourself"""
         self.protocol = protocol
         self.command = self.protocol.command
         self.ask = self.protocol.ask
@@ -111,13 +112,13 @@ class SCPIDevice(object):
             self.command = self.protocol.safe_command
             self.ask = self.protocol.safe_ask
 
-    def quit(self):
+    async def quit(self):
         """Shuts down any background threads that might be active"""
-        self.protocol.quit()
+        await self.protocol.quit()
 
-    def abort(self):
+    async def abort(self):
         """Tells the protocol layer to issue "Device clear" to abort the command currently hanging"""
-        return self.protocol.abort_command()
+        await self.protocol.abort_command()
 
     async def get_error(self):
         """Shorthand for procotols method of the same name"""

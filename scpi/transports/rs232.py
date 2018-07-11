@@ -1,18 +1,15 @@
 """Serial port transport layer"""
-import logging
-
 import serial
 import serial.threaded
 
 from .baseclass import BaseTransport
-
-logger = logging.getLogger(__name__)
 
 WRITE_TIMEOUT = 1.0
 
 
 class RS232SerialProtocol(serial.threaded.LineReader):
     """PySerial "protocol" class for handling stuff"""
+    ENCODING = 'ascii'
 
     def connection_made(self, transport):
         """Overridden to make sure we have write_timeout set"""
@@ -47,7 +44,7 @@ class RS232Transport(BaseTransport):
         with (await self.lock):
             self.serialhandler.serial.send_break()
 
-    def quit(self):
+    async def quit(self):
         """Closes the port and background threads"""
         self.serialhandler.close()
 

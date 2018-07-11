@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 
@@ -10,13 +11,11 @@ git_version = 'UNKNOWN'
 try:
     git_version = subprocess.check_output(['git', 'rev-parse', '--verify', '--short', 'HEAD']).decode('ascii').strip()
 except subprocess.CalledProcessError as e:
-    #print("Got error when trying to read git version: %s" % e)
     pass
 
 setuptools.setup(
     name='scpi',
-    version='2.0.0+git.%s' % git_version,
-    # version='2.0.0',
+    version=os.getenv('PACKAGE_VERSION', '2.0.0+git.%s' % git_version),
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=setuptools.find_packages(),

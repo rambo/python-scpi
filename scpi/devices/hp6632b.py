@@ -28,8 +28,7 @@ class HP6632B(SCPIDevice):
                 # Enter low current mode and measure again
                 await self.set_low_current_mode(True)
                 return await self.measure_current(extra_params)
-            else:
-                return ret
+            return ret
         # We need to be in high-current mode
         if await self.query_low_current_mode():
             # Switch mode and measure again
@@ -53,8 +52,8 @@ class HP6632B(SCPIDevice):
         """RS232 only, prevent *any* button mashing on the fron panel, this switches between SYSTem:RWLock and SYSTem:LOCal according to state, this overrides previous value set with set_remote_mode"""
         self.ensure_transport_is_rs232()
         if state:
-            return self.scpi.send_command("SYST:RWL", False)
-        return self.scpi.send_command("SYST:LOC", False)
+            return self.command("SYST:RWL")
+        return self.command("SYST:LOC")
 
     async def display_on(self, state=True):
         """Sets display on/off"""

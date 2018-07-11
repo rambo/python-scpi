@@ -1,6 +1,6 @@
 #!/bin/bash
 find . -name '._*' | xargs rm
-for f in $(find . -name '*.py' -and -not -path '*/venv/*')
+for f in $(find . -name '*.py' -and -not -path '*/venv/*' -and -not -path '*/build/*')
 do
     echo "================="
     echo $f

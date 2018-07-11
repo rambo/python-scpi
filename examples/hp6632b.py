@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import asyncio
 import atexit
-import functools
 import os
 import sys
 

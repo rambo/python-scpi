@@ -23,6 +23,10 @@ class BaseTransport(object):
         note: the transport probably should handle locking transparently using 'with (await self.lock):' as context manager"""
         raise NotImplementedError()
 
+    async def get_response(self):
+        """Tells the device send a response, reads and returns it"""
+        raise NotImplementedError()
+
     def message_received(self, message):
         """Passes the message to the callback expecting it, or to the unsolicited callback"""
         if self.message_callback is not None:

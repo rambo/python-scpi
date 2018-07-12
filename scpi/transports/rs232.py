@@ -1,4 +1,6 @@
 """Serial port transport layer"""
+import asyncio
+
 import serial
 import serial.threaded
 
@@ -36,6 +38,21 @@ class RS232Transport(BaseTransport):
             raise RuntimeError("Serial handler not ready")
         with (await self.lock):
             self.serialhandler.protocol.write_line(command)
+
+    async def get_response(self):
+        """Serial devices send responses without needing to be told to, just reads it"""
+        # TODO: we probably have a race-condition possibility here, maybe always put all received
+        # messages to a stack and return popleft ??
+        with (await self.lock):
+            response = None
+
+            def set_response(message):
+                nonlocal response
+                response = message
+            self.message_callback = set_response
+            while response is None:
+                await asyncio.sleep(0)
+            return response
 
     async def abort_command(self):
         """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:

@@ -69,16 +69,8 @@ class SCPIProtocol(object):
         try:
             with timeout(cmd_timeout):
                 with (await self.lock):
-                    response = None
-
-                    def set_response(message):
-                        nonlocal response
-                        response = message
-                    self.transport.message_callback = set_response
                     await self.transport.send_command(command)
-                    while response is None:
-                        await asyncio.sleep(0)
-                    return response
+                    return await self.transport.get_response()
 
         except asyncio.TimeoutError as e:
             # check for the actual error if available

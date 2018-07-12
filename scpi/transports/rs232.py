@@ -55,9 +55,11 @@ class RS232Transport(BaseTransport):
             return response
 
     async def abort_command(self):
-        """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B): The status registers, the error queue, and all configuration states are left unchanged when a device clear message is received. Device clear performs the following actions:
- - The input and output buffers of the dc source are cleared.
- - The dc source is prepared to accept a new command string."""
+        """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B):
+        The status registers, the error queue, and all configuration states are left unchanged when a device
+        clear message is received. Device clear performs the following actions:
+             - The input and output buffers of the dc source are cleared.
+             - The dc source is prepared to accept a new command string."""
         with (await self.lock):
             self.serialhandler.serial.send_break()
 

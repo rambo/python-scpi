@@ -20,7 +20,8 @@ class BaseTransport(object):
 
     async def send_command(self, command):
         """Sends a complete command to the device, line termination, write timeouts etc are handled by the transport
-        note: the transport probably should handle locking transparently using 'with (await self.lock):' as context manager"""
+        note: the transport probably should handle locking transparently using
+        'with (await self.lock):' as context manager"""
         raise NotImplementedError()
 
     async def get_response(self):
@@ -41,5 +42,6 @@ class BaseTransport(object):
 
     async def abort_command(self):
         """Send the "device clear" command to abort a running command
-        note: the transport probably should handle locking transparently using 'with (await self.lock):' as context manager"""
+        note: the transport probably should handle locking transparently using
+        'with (await self.lock):' as context manager"""
         raise NotImplementedError()

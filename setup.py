@@ -1,3 +1,4 @@
+"""Packaging script for python-scpi"""
 import os
 import subprocess
 import sys
@@ -7,15 +8,15 @@ import setuptools
 if sys.version_info < (3, 5):
     raise RuntimeError("Minimum version python 3.5")
 
-git_version = 'UNKNOWN'
+GIT_VERSION = 'UNKNOWN'
 try:
-    git_version = subprocess.check_output(['git', 'rev-parse', '--verify', '--short', 'HEAD']).decode('ascii').strip()
-except subprocess.CalledProcessError as e:
+    GIT_VERSION = subprocess.check_output(['git', 'rev-parse', '--verify', '--short', 'HEAD']).decode('ascii').strip()
+except subprocess.CalledProcessError:
     pass
 
 setuptools.setup(
     name='scpi',
-    version=os.getenv('PACKAGE_VERSION', '2.0.0+git.%s' % git_version),
+    version=os.getenv('PACKAGE_VERSION', '2.1.0+git.%s' % GIT_VERSION),
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=setuptools.find_packages(),

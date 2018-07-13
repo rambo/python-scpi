@@ -6,6 +6,7 @@ import re
 from async_timeout import timeout
 
 from .errors import CommandError
+from .transports.baseclass import AbstractTransport
 
 COMMAND_DEFAULT_TIMEOUT = 1.0
 ERROR_RE = re.compile(r'([+-]\d+),"(.*?)"')
@@ -216,6 +217,10 @@ class SCPIDevice(object):
     def __init__(self, protocol, use_safe_variants=True):
         """Initialize device with protocol instance, if use_safe_variants is True (default) then we will
         do the automatic error checking for each command, set to false to take care of it yourself"""
+        # If we got transport instance instead of protocol, cast it on-the-fly
+        if isinstance(protocol, AbstractTransport):
+            transport = protocol
+            protocol = SCPIProtocol(transport)
         self.protocol = protocol
         self.transport = self.protocol.transport
         self.command = self.protocol.command

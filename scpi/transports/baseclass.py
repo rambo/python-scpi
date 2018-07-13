@@ -8,7 +8,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BaseTransport(object):
+class AbstractTransport(object):
+    """So that for example GPIBDeviceTransport can be identified as transport without inheriting
+    the low-level transport methods"""
+
+
+class BaseTransport(AbstractTransport):
     """Baseclass for SCPI tranport layers, abstracts away details, must be subclasses to implement"""
     message_callback = None
     unsolicited_message_callback = None

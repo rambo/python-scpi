@@ -18,7 +18,7 @@ Pro tip for thos wishing to work on the code <http://guide.python-distribute.org
   - Instantiate `SCPIDevice` with the protocol
   - Use the asyncio eventloop to run the device methods (all of which are coroutines)
 
-Or if you're just playing around in the REPL use `DeviceWrapper` to hide the eventloop handling
+Or if you're just playing around in the REPL use `AIOWrapper` to hide the eventloop handling
 for traditional non-concurrent approach.
 
 See <https://github.com/rambo/python-scpi/tree/master/examples> for more.

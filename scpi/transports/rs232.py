@@ -27,7 +27,8 @@ class RS232Transport(BaseTransport):
     """Uses PySerials ReaderThread in the background to save us some pain"""
     serialhandler = None
 
-    def __init__(self, serial_device):
+    def __init__(self, serial_device, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.serialhandler = serial.threaded.ReaderThread(serial_device, RS232SerialProtocol)
         self.serialhandler.start()
         self.serialhandler.protocol.handle_line = self.message_received

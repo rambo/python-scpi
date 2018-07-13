@@ -21,7 +21,8 @@ class PrologixGPIBTransport(GPIBTransport):
     """Transport "driver" for the Prologix USB-GPIB controller (v6 protocol)"""
     serialhandler = None
 
-    def __init__(self, serial_device):
+    def __init__(self, serial_device, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.serialhandler = serial.threaded.ReaderThread(serial_device, PrologixRS232SerialProtocol)
         self.serialhandler.start()
         self.serialhandler.protocol.handle_line = self.message_received
@@ -114,11 +115,13 @@ class PrologixGPIBTransport(GPIBTransport):
 
     async def get_srq(self):
         """Get SRQ assertion status"""
-        return int(await self.send_and_read('++srq'))
+        resp = await self.send_and_read('++srq')
+        return int(resp)
 
     async def poll(self):
         """Do serial poll on the selected device"""
-        return int(await self.send_and_read('++spoll'))
+        resp = await self.send_and_read('++spoll')
+        return int(resp)
 
     async def send_group_trig(self, addresses=None):
         """Send trigger to listed addresses

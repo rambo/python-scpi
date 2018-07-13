@@ -4,8 +4,8 @@ import functools
 import inspect
 
 
-class DeviceWrapper(object):
-    """Wraps all coroutine device methods into asyncio run_until_complete calls"""
+class AIOWrapper(object):
+    """Wraps all coroutine methods into asyncio run_until_complete calls"""
     _device = None
     _loop = None
 
@@ -40,3 +40,7 @@ class DeviceWrapper(object):
         """Calls the device.quit via loop and closes the loop"""
         self._loop.run_until_complete(self._device.quit())
         self._loop.close()
+
+
+class DeviceWrapper(AIOWrapper):
+    """Legacy name for the AsyncIO wrapper class for backwards compatibility"""

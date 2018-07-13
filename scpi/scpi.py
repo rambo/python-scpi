@@ -120,11 +120,6 @@ class SCPIDevice(object):
         """Resets the device to known state (with *RST) and clears the error log"""
         return self.protocol.command('*RST;*CLS')
 
-    async def operation_complete(self):
-        """Queries for "operation complete" and returns the response"""
-        resp = await self.ask('*OPC?')
-        return bool(int(resp))
-
     async def wait_for_complete(self, wait_timeout):
         """Wait for all queued operations to complete (up-to defined timeout)"""
         resp = await self.ask('*WAI;*OPC?', cmd_timeout=wait_timeout)

@@ -7,43 +7,43 @@ class GPIBTransport(BaseTransport):
 
     async def set_address(self, addr):
         """Set the address we want to talk to"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def query_address(self):
         """Query the address we are talking to"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def scan_devices(self):
         """Scan for devices in the bus"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def send_scd(self):
         """Sends the Selected Device Clear (SDC) message to the currently specified GPIB address"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def send_ifc(self):
         """Asserts GPIB IFC signal"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def send_llo(self):
         """Send LLO (disable front panel) to currently specified address"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def send_loc(self):
         """Send LOC (enable front panel) to currently specified address"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
-    async def send_trig(self, addresses):
-        """Send Group Execute Trigger GPIB to the listed addresses"""
-        raise NotImplemented()
+    async def send_group_trig(self):
+        """Send Group Execute Trigger to the bus"""
+        raise NotImplementedError()
 
     async def get_srq(self):
         """Get SRQ assertion status"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
     async def poll(self):
         """Do serial poll on the selected device"""
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
 class GPIBDeviceTransport(object):

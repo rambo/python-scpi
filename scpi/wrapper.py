@@ -27,6 +27,7 @@ class DeviceWrapper(object):
         if inspect.iscoroutinefunction(orig):
             @functools.wraps(orig)
             def wrapped(*args, **kwargs):
+                """Gets the waitable and tells the event loop to run it"""
                 waitable = orig(*args, **kwargs)
                 return self._loop.run_until_complete(waitable)
             return wrapped

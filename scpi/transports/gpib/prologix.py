@@ -20,6 +20,13 @@ class PrologixGPIBTransport(GPIBTransport):
         self.serialhandler.start()
         self.serialhandler.protocol.handle_line = self.message_received
 
+    async def send_group_trig(self, addresses=None):
+        """Send trigger to listed addresses
+
+        For some reason Prologix does not trigger the whole bus but only listed devices (if none listed then
+        the currently selected device is used)"""
+        raise NotImplementedError()
+
 
 def get(serial_url, **serial_kwargs):
     """Shorthand for creating the port from url and initializing the transport"""

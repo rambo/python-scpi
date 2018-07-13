@@ -168,13 +168,13 @@ class SCPIProtocol(object):
             with timeout(cmd_timeout):
                 with (await self.lock):
                     await self.transport.send_command(command)
-        except asyncio.TimeoutError as e:
+        except asyncio.TimeoutError as err:
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
                 self.abort_command()
             # re-raise the timeout if no other error found
-            raise e
+            raise err
         # other errors are allowed to bubble-up as-is
 
     async def safe_command(self, command, *args, **kwargs):
@@ -190,13 +190,13 @@ class SCPIProtocol(object):
                     await self.transport.send_command(command)
                     return await self.transport.get_response()
 
-        except asyncio.TimeoutError as e:
+        except asyncio.TimeoutError as err:
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
                 self.abort_command()
             # re-raise the timeout if no other error found
-            raise e
+            raise err
         # other errors are allowed to bubble-up as-is
 
     async def safe_ask(self, command, *args, **kwargs):
@@ -349,3 +349,9 @@ class SCPIDevice(object):
         except AttributeError:
             resp = await self.ask("*STB?")
         return int(resp)
+
+    async def trigger(self):
+        """Send the TRiGger command via SCPI.
+        NOTE: For GPIB devices the Group Execute Trigger is way better, use it when possible
+        however we do not do it transparently here since it triggers all devices on the bus"""
+        await self.command("*TRG")

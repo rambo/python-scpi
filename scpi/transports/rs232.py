@@ -47,6 +47,7 @@ class RS232Transport(BaseTransport):
             response = None
 
             def set_response(message):
+                """Callback for setting the response"""
                 nonlocal response
                 response = message
             self.message_callback = set_response

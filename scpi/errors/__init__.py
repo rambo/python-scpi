@@ -2,6 +2,8 @@
 
 
 class CommandError(RuntimeError):
+    """Error executing SCPI command"""
+
     def __init__(self, command, code, message, *args, **kwargs):
         self.command = command
         self.code = code

@@ -1,9 +1,10 @@
 """HP/Agilent 3362B specific device implementation and helpers"""
 from ..scpi import SCPIDevice
 from ..transports.rs232 import RS232Transport
+from .generic import MultiMeter, PowerSupply
 
 
-class HP6632B(SCPIDevice):
+class HP6632B(PowerSupply, MultiMeter, SCPIDevice):
     """Adds the HP/Agilent 3362B specific SCPI commands as methods"""
 
     async def set_low_current_mode(self, state):

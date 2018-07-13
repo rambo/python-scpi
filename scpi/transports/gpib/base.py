@@ -5,16 +5,18 @@ from ..baseclass import BaseTransport
 class GPIBTransport(BaseTransport):
     """Baseclass for GPIB transports"""
 
-    async def set_address(self, addr):
+    async def set_address(self, address, secondary=None):
         """Set the address we want to talk to"""
         raise NotImplementedError()
 
     async def query_address(self):
-        """Query the address we are talking to"""
+        """Query the address we are talking to, returns tuple with primary and secondary parts
+        secondary is None if not set"""
         raise NotImplementedError()
 
     async def scan_devices(self):
-        """Scan for devices in the bus"""
+        """Scan for devices in the bus.
+        Returns list of addresses and identifiers for found primary addresses (0-30)"""
         raise NotImplementedError()
 
     async def send_scd(self):

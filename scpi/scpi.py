@@ -168,7 +168,7 @@ class SCPIProtocol(object):
             with timeout(cmd_timeout):
                 with (await self.lock):
                     await self.transport.send_command(command)
-        except asyncio.TimeoutError as err:
+        except (asyncio.TimeoutError, asyncio.CancelledError) as err:
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
@@ -190,7 +190,7 @@ class SCPIProtocol(object):
                     await self.transport.send_command(command)
                     return await self.transport.get_response()
 
-        except asyncio.TimeoutError as err:
+        except (asyncio.TimeoutError, asyncio.CancelledError) as err:
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
@@ -238,7 +238,7 @@ class SCPIDevice(object):
 
     async def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
-        return self.protocol.command('*RST;*CLS')
+        return await self.protocol.command('*RST;*CLS')
 
     async def wait_for_complete(self, wait_timeout):
         """Wait for all queued operations to complete (up-to defined timeout)"""

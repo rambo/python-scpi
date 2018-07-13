@@ -33,7 +33,7 @@ class RS232Transport(BaseTransport):
         self.serialhandler.protocol.handle_line = self.message_received
 
     async def send_command(self, command):
-        """Wrapper for send_line on the protocol"""
+        """Wrapper for write_line on the protocol with some sanity checks"""
         if not self.serialhandler or not self.serialhandler.is_alive():
             raise RuntimeError("Serial handler not ready")
         with (await self.lock):

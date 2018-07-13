@@ -8,7 +8,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BaseTransport(object):
+class AbstractTransport(object):
+    """So that for example GPIBDeviceTransport can be identified as transport without inheriting
+    the low-level transport methods"""
+
+
+class BaseTransport(AbstractTransport):
     """Baseclass for SCPI tranport layers, abstracts away details, must be subclasses to implement"""
     message_callback = None
     unsolicited_message_callback = None
@@ -20,7 +25,12 @@ class BaseTransport(object):
 
     async def send_command(self, command):
         """Sends a complete command to the device, line termination, write timeouts etc are handled by the transport
-        note: the transport probably should handle locking transparently using 'with (await self.lock):' as context manager"""
+        note: the transport probably should handle locking transparently using
+        'with (await self.lock):' as context manager"""
+        raise NotImplementedError()
+
+    async def get_response(self):
+        """Tells the device send a response, reads and returns it"""
         raise NotImplementedError()
 
     def message_received(self, message):
@@ -37,5 +47,6 @@ class BaseTransport(object):
 
     async def abort_command(self):
         """Send the "device clear" command to abort a running command
-        note: the transport probably should handle locking transparently using 'with (await self.lock):' as context manager"""
+        note: the transport probably should handle locking transparently using
+        'with (await self.lock):' as context manager"""
         raise NotImplementedError()

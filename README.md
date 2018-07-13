@@ -13,12 +13,12 @@ Pro tip for thos wishing to work on the code <http://guide.python-distribute.org
 
 ## Usage
 
-  - Instatiate a transport
-  - Instatiate `SCPIProtocol` with the transport
-  - Instantiate `SCPIDevice` with the protocol
+  - Instatiate a transport (for GPIB you will need `GPIBDeviceTransport` to be able to use the device helper class)
+  - Instatiate `SCPIProtocol` with the transport (optional, see below)
+  - Instantiate `SCPIDevice` with the protocol (or as a shorthand: with the transport directly)
   - Use the asyncio eventloop to run the device methods (all of which are coroutines)
 
-Or if you're just playing around in the REPL use `DeviceWrapper` to hide the eventloop handling
+Or if you're just playing around in the REPL use `AIOWrapper` to hide the eventloop handling
 for traditional non-concurrent approach.
 
 See <https://github.com/rambo/python-scpi/tree/master/examples> for more.

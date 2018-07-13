@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+"""Example/test script for using the HP 6632B power supply via serial interface"""
 import atexit
 import os
 import sys
 
 from scpi.devices import hp6632b
-from scpi.wrapper import DeviceWrapper
+from scpi.wrapper import AIOWrapper
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -13,8 +14,7 @@ if __name__ == '__main__':
     # Then put to interactive mode
     os.environ['PYTHONINSPECT'] = '1'
     aiodev = hp6632b.rs232(sys.argv[1], rtscts=True)
-    # dev = hp6632b.rs232(sys.argv[1], rtscts=False)
-    dev = DeviceWrapper(aiodev)
+    dev = AIOWrapper(aiodev)
 
     atexit.register(dev.quit)
 

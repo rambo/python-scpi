@@ -4,8 +4,8 @@ import functools
 import inspect
 
 
-class DeviceWrapper(object):
-    """Wraps all coroutine device methods into asyncio run_until_complete calls"""
+class AIOWrapper(object):
+    """Wraps all coroutine methods into asyncio run_until_complete calls"""
     _device = None
     _loop = None
 
@@ -27,6 +27,7 @@ class DeviceWrapper(object):
         if inspect.iscoroutinefunction(orig):
             @functools.wraps(orig)
             def wrapped(*args, **kwargs):
+                """Gets the waitable and tells the event loop to run it"""
                 waitable = orig(*args, **kwargs)
                 return self._loop.run_until_complete(waitable)
             return wrapped
@@ -39,3 +40,7 @@ class DeviceWrapper(object):
         """Calls the device.quit via loop and closes the loop"""
         self._loop.run_until_complete(self._device.quit())
         self._loop.close()
+
+
+class DeviceWrapper(AIOWrapper):
+    """Legacy name for the AsyncIO wrapper class for backwards compatibility"""

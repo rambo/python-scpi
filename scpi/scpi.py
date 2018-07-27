@@ -9,7 +9,7 @@ from .errors import CommandError
 from .transports.baseclass import AbstractTransport
 
 COMMAND_DEFAULT_TIMEOUT = 1.0
-ERROR_RE = re.compile(r'([+-]\d+),"(.*?)"')
+ERROR_RE = re.compile(r'([+-]?\d+),"(.*?)"')
 
 
 class BitEnum(object):

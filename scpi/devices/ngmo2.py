@@ -91,7 +91,7 @@ class NGMO2(SCPIDevice):
         # Sets timeout to be infinite
         await self.command("SENS:%s:PULS:TRIG:TIM INFinite" % output)
         # Sets output format to ASCII
-        await self.command("FORM:DATA SReal")
+        await self.command("FORM:DATA ASCII")
 
     async def trigger_dynamic_measurement(self, output):
         """Triggers a dynamic current measurement"""

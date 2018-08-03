@@ -53,10 +53,7 @@ class RS232Transport(BaseTransport):
                 response = message
             self.message_callback = set_response
             while response is None:
-                try:
-                    await asyncio.sleep(0)
-                except asyncio.CancelledError:
-                    pass
+                await asyncio.sleep(0.05)
             return response
 
     async def abort_command(self):

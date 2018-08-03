@@ -195,7 +195,7 @@ class SCPIProtocol(object):
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
-                self.abort_command()
+                await self.abort_command()
             # re-raise the timeout if no other error found
             raise err
         # other errors are allowed to bubble-up as-is

@@ -47,6 +47,14 @@ class NGMO2(SCPIDevice):
         """Sets the current ranging to 0.5A mode"""
         await self.command("SENS:%s:CURR:RANG MEDIUM" % (output))
 
+    async def set_high_ranging_current(self, output):
+        """Sets the current ranging to -4A/+7A mode, needed for negative readings"""
+        await self.command("SENS:%s:CURR:RANG HIGH" % (output))
+
+    async def set_low_ranging_current(self, output):
+        """Sets the current ranging to -4A/+7A mode, needed for negative readings"""
+        await self.command("SENS:%s:CURR:RANG LOW" % (output))
+
     async def set_static_measure_interval(self, output, interval_ms):
         """Sets the static current measurement interval in ms"""
         await self.command("SENS:%s:MEAS:INT %0.3f" % (output, interval_ms/1000))

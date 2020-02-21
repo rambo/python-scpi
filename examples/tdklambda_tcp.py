@@ -6,7 +6,7 @@ Created on febrary 21 2020.
 
 import atexit
 import os
-
+import time
 
 from scpi.devices import TDKLambdaZPlus
 from scpi.wrapper import AIOWrapper
@@ -17,8 +17,10 @@ if __name__ == '__main__':
     aiodev = TDKLambdaZPlus.tcp('192.168.3.34', 8003)
     dev = AIOWrapper(aiodev)
     atexit.register(dev.quit)
-    print(dev.identify())
-    print (dev.query_voltage())
-    print(dev.query_current())
-    print (dev.query_output())
+    dev.identify()
+    while True:
+        dev.query_voltage()
+        dev.query_current()
+        dev.query_output()
+        time.sleep(1)
     

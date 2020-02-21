@@ -8,7 +8,7 @@ from .baseclass import BaseTransport
 
 class TCPTransport(BaseTransport):
     async def openconnection(self, ip,port):
-        self.reader, self.writer = await asyncio.open_connection(ip, port)
+        self.reader, self.writer = await asyncio.open_connection(ip, port, loop= asyncio.get_event_loop())
 
     def __init__(self, ip, port, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -18,13 +18,16 @@ class TCPTransport(BaseTransport):
     
     async def send_command(self, command):
         with (await self.lock):
-            self.writer.write(command.encode())
+            print (command)
+            self.writer.write((command+"\r\n").encode())
+            await asyncio.sleep(0.05)
+            await self.writer.drain()
 
     async def get_response(self):
         with (await self.lock):
             data = await self.reader.readline()
-        res  = data.decode()
-        print(res.strip())
+            res=data.decode()
+            print (res.strip())
         return res
 
     async def quit(self):

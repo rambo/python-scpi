@@ -37,6 +37,9 @@ class PowerSupply(SCPIDevice):
     async def set_voltage(self, millivolts, extra_params=""):
         """Sets the desired output voltage (but does not auto-enable outputs) in millivolts,
         pass extra_params string to append to the command (like ":PROT")"""
+        # TODO: for debugging, limit voltage to 5V
+        if millivolts > 5000:
+            millivolts = 5000
         await self.command("SOUR:VOLT%s %f MV" % (extra_params, millivolts))
 
     async def query_voltage(self, extra_params=""):
@@ -48,6 +51,9 @@ class PowerSupply(SCPIDevice):
     async def set_current(self, milliamps, extra_params=""):
         """Sets the desired output current (but does not auto-enable outputs) in milliamps,
         pass extra_params string to append to the command (like ":TRIG")"""
+        # TODO: for debugging, limit current to 0.12A
+        if milliamps > 120:
+            milliamps = 120
         await self.command("SOUR:CURR%s %f MA" % (extra_params, milliamps))
 
     async def query_current(self, extra_params=""):

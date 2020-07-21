@@ -312,3 +312,15 @@ class SCPIDevice(object):
         NOTE: For GPIB devices the Group Execute Trigger is way better, use it when possible
         however we do not do it transparently here since it triggers all devices on the bus"""
         await self.command("*TRG")
+
+    async def clear_status(self):
+        """
+        Sends a clear status command.
+        """
+        await self.command("*CLS")
+
+    async def operation_complete(self):
+        """
+        Sends an Operation Complete command.
+        """
+        await self.command("*OPC")

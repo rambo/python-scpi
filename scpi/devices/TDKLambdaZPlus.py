@@ -141,6 +141,77 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         else:
             raise ValueError("Argument '%s' not valid for INST:COUP" % couple)
 
+    async def set_voltage_protection(self, volts):
+        """
+        Set over-voltage protection level.
+        """
+
+        _volts = str(volts).upper()
+
+        await self.command("VOLTage:PROTection:LEVel")
+
+    async def query_voltage_protection(self, mode=None):
+        """
+        Query the voltage protection level.  Depending on mode, returns the current level, the
+        minimum level, or the maximum level.
+
+        mode: Which value to return.
+                - None (default): returns the current voltage protection level
+                - "MAX": returns the maximum possible voltage protection level
+                - "MIN": returns the minimum possible voltage protection level, approx. 105% the
+                         current voltage setting
+        """
+
+        if mode is None:
+            resp = await self.ask("VOLTage:PROTection:LEVel?")
+        else:
+            resp = await self.ask("VOLTage:PROTection:LEVel? %s" % mode)
+        return decimal.Decimal(resp)
+
+    async def flash_display(self, setting):
+        """
+        Make the front panel voltage and Current displays flash.
+        """
+
+        setting = str(setting).upper()
+        if setting in ("1", "ON", "TRUE"):
+            setting = "1"
+        elif setting in ("0", "OFF", "FALSE"):
+            setting = "0"
+        else:
+            raise ValueError
+        await self.command("DISPlay:FLASh %s" % setting)
+
+    async def global_enable(self, setting):
+        """
+        Set enable status of all units.
+        """
+
+        setting = str(setting).upper()
+        if setting in ("1", "ON", "TRUE"):
+            setting = "1"
+        elif setting in ("0", "OFF", "FALSE"):
+            setting = "0"
+        else:
+            raise ValueError
+        await self.command("GLOBal:OUTPut:STATe %s" % setting)
+
+    async def global_set_voltage(self, volts):
+        """
+        Set enable status of all units.
+        """
+
+        _volts = str(volts)
+
+        await self.command("GLOBal:VOLTage:AMPLitude %s" % _volts)
+
+    async def global_reset(self):
+        """
+        Reset all units.
+        """
+
+        await self.command("GLOBal:*RST")
+
 
 def tcp(ip, port):
     """Quick helper to connect via TCP"""

@@ -107,6 +107,40 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         resp = await self.ask("MEAS:POW%s?" % extra_params)
         return decimal.Decimal(resp)
 
+    async def select_active_instrument(self, id):
+        """
+        Select the power supply for communication.
+
+        id: the ID of the power supply to select.  int from 1-31
+        """
+
+        _id = int(id)
+
+        if _id < 1 or id > 31:
+            raise ValueError('id %d is outside of the valid id range' % _id)
+
+        await self.command("INSTrument:NSELect %d" % _id)
+
+    async def query_active_instrument(self):
+        """
+        Returns the ID of the active instrument.
+        """
+
+        resp = await self.ask("INSTrument:NSELect?")
+        return decimal.Decimal(resp)
+
+    async def couple_mode(self, couple="NONE"):
+        """
+        Couple for all Z+ power supplies.
+        """
+
+        couple = couple.upper()
+
+        if couple in ("NONE", "ALL"):
+            await self.command("INSTrument:COUPle %s" % couple)
+        else:
+            raise ValueError("Argument '%s' not valid for INST:COUP" % couple)
+
 
 def tcp(ip, port):
     """Quick helper to connect via TCP"""

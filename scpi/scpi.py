@@ -312,3 +312,51 @@ class SCPIDevice(object):
         NOTE: For GPIB devices the Group Execute Trigger is way better, use it when possible
         however we do not do it transparently here since it triggers all devices on the bus"""
         await self.command("*TRG")
+
+    async def clear_status(self):
+        """
+        Sends a clear status command.
+        """
+        await self.command("*CLS")
+
+    async def operation_complete(self):
+        """
+        Sends an Operation Complete command.
+        """
+        await self.command("*OPC")
+
+    async def query_options(self):
+        """
+        Queries the model's options.
+        """
+        await self.ask("*OPT?")
+
+    async def set_power_on_status_clear(self, setting):
+        """
+        Set the Power-On Status Clear setting.
+        """
+        await self.command("*PSC %s" % setting)
+
+    async def save_state(self, state):
+        """
+        The SAV command saves all applied configuration settings.
+        """
+        state = int(state)
+        assert state in (1, 2, 3, 4)
+
+        await self.command("*SAV %d" % state)
+
+    async def restore_state(self, state):
+        """
+        Restores the power supply to a state previously stored in memory by *SAV command.
+        """
+        state = int(state)
+
+        await self.command("*RCL %d" % state)
+
+    async def power_on_state(self, setting):
+        """
+        Set the power-on behavior of the system
+        """
+        setting = str(setting).upper()
+        await self.command("*OUTP:PON %s" % setting)

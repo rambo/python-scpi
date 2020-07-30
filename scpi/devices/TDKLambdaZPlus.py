@@ -12,12 +12,6 @@ from .generic import PowerSupply
 
 class TDKSCPI(SCPIDevice):
 
-    async def query_options(self):
-        """
-        Queries the model's options.
-        """
-        await self.ask("*OPT?")
-
     async def set_power_on_status_clear(self, setting):
         """
         Set the Power-On Status Clear setting.
@@ -32,34 +26,37 @@ class TDKSCPI(SCPIDevice):
             setting = "0"
         else:
             raise ValueError
-        await self.command("*PSC %s" % setting)
+        await super().set_power_on_status_clear(setting)
+
 
     async def restore_state(self, state):
         """
         Restores the power supply to a state previously stored in memory by *SAV command.
         """
         state = int(state)
-        assert state in (1, 2, 3, 4)
+        if state not in (1, 2, 3, 4):
+            raise ValueError
 
-        await self.command("*RCL %d" % state)
+        await super().restore_state(state)
 
     async def save_state(self, state):
         """
         The SAV command saves all applied configuration settings.
         """
         state = int(state)
-        assert state in (1, 2, 3, 4)
+        if state not in (1, 2, 3, 4):
+            raise ValueError
 
-        await self.command("*SAV %d" % state)
+        await super().save_state(state)
 
     async def power_on_state(self, setting):
         """
         Set the power-on behavior of the system
-        * AUTO - The power supply output will return to its previous value when the latching fault
-                 condition is removed or to the stored value after AC recycle.
-        * SAFE - The power supply output will remain Off after the fault condition is removed or
-                 after AC recycle.
-        @ TODO: THE DOCS ARE VERY UNCLEAR WHAT VALUE IS WHICH
+        * 1 - AUTO - The power supply output will return to its previous value
+                     when the latching fault condition is removed or to the
+                     stored value after AC recycle.
+        * 0 - SAFE - The power supply output will remain Off after the fault
+                     condition is removed or after AC recycle.
         """
         setting = str(setting).upper()
         if setting in ("1", "ON", "TRUE"):
@@ -68,11 +65,20 @@ class TDKSCPI(SCPIDevice):
             setting = "0"
         else:
             raise ValueError
-        await self.command("*OUTP:PON %s" % setting)
-
+        await super().power_on_state(setting)
 
 
 class TDKLambdaZplus(PowerSupply, TDKSCPI):
+
+    def __init__(self, protocol, use_safe_variants=True, voltage=20, current=10):
+        """
+        Initialize the device with voltage [V] and current [A] limits.
+        """
+
+        self.voltage_limit = voltage
+        self.current_limit = current
+
+        super().__init__(protocol, use_safe_variants=use_safe_variants)
 
     async def measure_current(self, extra_params=""):
         """
@@ -212,6 +218,32 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
 
         await self.command("GLOBal:*RST")
 
+    async def set_voltage(self, millivolts, extra_params=""):
+        """
+        Sets the desired output voltage (but does not auto-enable outputs) in
+        millivolts, pass extra_params string to append to the command (like ":PROT")
+
+        Limited to five percent greater than the voltage limit of the unit.
+        """
+
+        if millivolts/1000. > 1.05*self.voltage_limit or millivolts < 0:
+            raise ValueError
+
+        await super().set_voltage(millivolts, extra_params=extra_params)
+
+    async def set_current(self, milliamps, extra_params=""):
+        """
+        Sets the desired output current (but does not auto-enable outputs) in
+        milliamps, pass extra_params string to append to the command (like ":TRIG")
+
+        Limited to five percent greater than the current limit of the unit.
+        """
+
+        if milliamps/1000. > 1.05*self.current_limit or milliamps < 0:
+            raise ValueError
+
+        await super().set_current(milliamps, extra_params=extra_params)
+
 
 def tcp(ip, port):
     """Quick helper to connect via TCP"""
@@ -223,7 +255,7 @@ def tcp(ip, port):
     return dev
 
 
-def rs232(port, baudrate=9600):
+def serial(port, baudrate=9600):
     """ Quick helper to connect via serial """
     from ..transports.rs232 import RS232Transport
     from ..scpi import SCPIProtocol
@@ -240,8 +272,4 @@ def rs232(port, baudrate=9600):
     transport = RS232Transport(port)
     protocol = SCPIProtocol(transport)
     dev = TDKLambdaZplus(protocol)
-    # TODO: these are for my debugging purposes, remove before release
-    from ..wrapper import AIOWrapper
-    wdev = AIOWrapper(dev)
-    wdev.command('INSTrument:NSELect 1')
     return dev

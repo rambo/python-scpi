@@ -39,14 +39,14 @@ class RS232Transport(BaseTransport):
         """Wrapper for write_line on the protocol with some sanity checks"""
         if not self.serialhandler or not self.serialhandler.is_alive():
             raise RuntimeError("Serial handler not ready")
-        with (await self.lock):
+        async with self.lock:
             self.serialhandler.protocol.write_line(command)
 
     async def get_response(self):
         """Serial devices send responses without needing to be told to, just reads it"""
         # TODO: we probably have a race-condition possibility here, maybe always put all received
         # messages to a stack and return popleft ??
-        with (await self.lock):
+        async with self.lock:
             response = None
 
             def set_response(message):
@@ -65,7 +65,7 @@ class RS232Transport(BaseTransport):
         clear message is received. Device clear performs the following actions:
              - The input and output buffers of the dc source are cleared.
              - The dc source is prepared to accept a new command string."""
-        with (await self.lock):
+        async with self.lock:
             self.serialhandler.serial.send_break()
 
     async def quit(self):

@@ -51,7 +51,7 @@ class PrologixGPIBTransport(GPIBTransport):
         """Wrapper for write_line on the protocol with some sanity checks"""
         if not self.serialhandler or not self.serialhandler.is_alive():
             raise RuntimeError("Serial handler not ready")
-        with (await self.lock):
+        async with self.lock:
             self.serialhandler.protocol.write_line(command)
 
     async def get_response(self):
@@ -62,7 +62,7 @@ class PrologixGPIBTransport(GPIBTransport):
         """Send a line, read the response. NOTE: This is for talking with the controller, device responses
         need to use get_response as usual"""
         with timeout(READ_TIMEOUT):
-            with (await self.lock):
+            async with self.lock:
                 response = None
 
                 def set_response(message):

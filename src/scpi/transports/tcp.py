@@ -17,14 +17,14 @@ class TCPTransport(BaseTransport):
         loop.run_until_complete(self.openconnection(ip, port))
 
     async def send_command(self, command):
-        with (await self.lock):
+        async with self.lock:
             print(command)
             self.writer.write((command + "\r\n").encode())
             await asyncio.sleep(0.05)
             await self.writer.drain()
 
     async def get_response(self):
-        with (await self.lock):
+        async with self.lock:
             data = await self.reader.readline()
             res = data.decode()
             print(res.strip())

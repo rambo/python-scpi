@@ -169,7 +169,7 @@ class SCPIProtocol(object):
         """Sends a command, does not wait for response"""
         try:
             with timeout(cmd_timeout):
-                with (await self.lock):
+                async with self.lock:
                     await self.transport.send_command(command)
         except (asyncio.TimeoutError, asyncio.CancelledError) as err:
             # check for the actual error if available
@@ -189,7 +189,7 @@ class SCPIProtocol(object):
         """Send a command and waits for response, returns the response"""
         try:
             with timeout(cmd_timeout):
-                with (await self.lock):
+                async with self.lock:
                     await self.transport.send_command(command)
                     return await self.transport.get_response()
 

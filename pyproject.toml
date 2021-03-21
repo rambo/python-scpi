@@ -31,7 +31,7 @@ exclude = '''
 
 [tool.pytest.ini_options]
 junit_family="xunit2"
-addopts="--cov=scpi --cov-fail-under=65 --cov-branch"
+addopts="--cov=scpi --cov-branch"
 
 [tool.pylint.format]
 max-line-length = 120

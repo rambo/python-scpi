@@ -14,6 +14,7 @@ ERROR_RE = re.compile(r'([+-]?\d+),"(.*?)"')
 
 class BitEnum(object):
     """Baseclass for bit definitions of various status registers"""
+
     @classmethod
     def test_bit(cls, statusvalue, bitname):
         """Test if the given status value has the given bit set"""
@@ -132,6 +133,7 @@ class STBBit(BitEnum):
 
 class SCPIProtocol(object):
     """Implements the SCPI protocol talks over the given transport"""
+
     transport = None
     lock = asyncio.Lock()
 
@@ -148,7 +150,7 @@ class SCPIProtocol(object):
 
     async def get_error(self):
         """Asks for the error code and string"""
-        response = await self.ask('SYST:ERR?')
+        response = await self.ask("SYST:ERR?")
         match = ERROR_RE.search(response)
         if not match:
             # PONDER: Make our own exceptions ??
@@ -157,7 +159,7 @@ class SCPIProtocol(object):
         errstr = match.group(2)
         return (code, errstr)
 
-    async def check_error(self, prev_command=''):
+    async def check_error(self, prev_command=""):
         """Check for error and raise exception if present"""
         code, errstr = await self.get_error()
         if code != 0:
@@ -211,6 +213,7 @@ class SCPIDevice(object):
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set
 
     See also devices.mixins for mixin classes with more features"""
+
     protocol = None
     transport = None
     command = None
@@ -249,18 +252,18 @@ class SCPIDevice(object):
 
     async def reset(self):
         """Resets the device to known state (with *RST) and clears the error log"""
-        return await self.protocol.command('*RST;*CLS')
+        return await self.protocol.command("*RST;*CLS")
 
     async def wait_for_complete(self, wait_timeout):
         """Wait for all queued operations to complete (up-to defined timeout)"""
-        resp = await self.ask('*WAI;*OPC?', cmd_timeout=wait_timeout)
+        resp = await self.ask("*WAI;*OPC?", cmd_timeout=wait_timeout)
         return bool(int(resp))
 
     async def identify(self):
         """Returns the identification data, standard order is:
-         Manufacturer, Model no, Serial no (or 0), Firmware version"""
+        Manufacturer, Model no, Serial no (or 0), Firmware version"""
         resp = await self.ask("*IDN?")
-        return resp.split(',')
+        return resp.split(",")
 
     async def query_esr(self):
         """Queries the event status register (ESR) NOTE: The register is cleared when read!

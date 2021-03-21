@@ -11,7 +11,8 @@ WRITE_TIMEOUT = 1.0
 
 class RS232SerialProtocol(serial.threaded.LineReader):
     """PySerial "protocol" class for handling stuff"""
-    ENCODING = 'ascii'
+
+    ENCODING = "ascii"
 
     def connection_made(self, transport):
         """Overridden to make sure we have write_timeout set"""
@@ -25,6 +26,7 @@ class RS232SerialProtocol(serial.threaded.LineReader):
 
 class RS232Transport(BaseTransport):
     """Uses PySerials ReaderThread in the background to save us some pain"""
+
     serialhandler = None
 
     def __init__(self, serial_device, *args, **kwargs):
@@ -51,6 +53,7 @@ class RS232Transport(BaseTransport):
                 """Callback for setting the response"""
                 nonlocal response
                 response = message
+
             self.message_callback = set_response
             while response is None:
                 await asyncio.sleep(0)

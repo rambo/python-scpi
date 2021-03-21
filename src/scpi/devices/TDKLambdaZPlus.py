@@ -1,8 +1,8 @@
-'''
+"""
 Created on febrary 21 2020
 
 @author: qmor
-'''
+"""
 import decimal
 
 from ..scpi import SCPIDevice
@@ -11,7 +11,6 @@ from .generic import PowerSupply
 
 
 class TDKSCPI(SCPIDevice):
-
     async def set_power_on_status_clear(self, setting):
         """
         Set the Power-On Status Clear setting.
@@ -27,7 +26,6 @@ class TDKSCPI(SCPIDevice):
         else:
             raise ValueError
         await super().set_power_on_status_clear(setting)
-
 
     async def restore_state(self, state):
         """
@@ -69,7 +67,6 @@ class TDKSCPI(SCPIDevice):
 
 
 class TDKLambdaZplus(PowerSupply, TDKSCPI):
-
     def __init__(self, protocol, use_safe_variants=True, voltage=20, current=10):
         """
         Initialize the device with voltage [V] and current [A] limits.
@@ -123,7 +120,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         _id = int(id)
 
         if _id < 1 or id > 31:
-            raise ValueError('id %d is outside of the valid id range' % _id)
+            raise ValueError("id %d is outside of the valid id range" % _id)
 
         await self.command("INSTrument:NSELect %d" % _id)
 
@@ -226,7 +223,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         Limited to five percent greater than the voltage limit of the unit.
         """
 
-        if millivolts/1000. > 1.05*self.voltage_limit or millivolts < 0:
+        if millivolts / 1000.0 > 1.05 * self.voltage_limit or millivolts < 0:
             raise ValueError
 
         await super().set_voltage(millivolts, extra_params=extra_params)
@@ -239,7 +236,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         Limited to five percent greater than the current limit of the unit.
         """
 
-        if milliamps/1000. > 1.05*self.current_limit or milliamps < 0:
+        if milliamps / 1000.0 > 1.05 * self.current_limit or milliamps < 0:
             raise ValueError
 
         await super().set_current(milliamps, extra_params=extra_params)
@@ -249,6 +246,7 @@ def tcp(ip, port):
     """Quick helper to connect via TCP"""
     from ..transports.tcp import get as get_tcp
     from ..scpi import SCPIProtocol
+
     transport = get_tcp(ip, port)
     protocol = SCPIProtocol(transport)
     dev = TDKLambdaZplus(protocol)
@@ -260,15 +258,18 @@ def serial(port, baudrate=9600):
     from ..transports.rs232 import RS232Transport
     from ..scpi import SCPIProtocol
     import serial
-    port = serial.Serial(port,
-                         baudrate=baudrate,
-                         bytesize=8,
-                         parity=serial.PARITY_NONE,
-                         stopbits=1,
-                         xonxoff=False,
-                         rtscts=False,
-                         dsrdtr=False,
-                         timeout=10)
+
+    port = serial.Serial(
+        port,
+        baudrate=baudrate,
+        bytesize=8,
+        parity=serial.PARITY_NONE,
+        stopbits=1,
+        xonxoff=False,
+        rtscts=False,
+        dsrdtr=False,
+        timeout=10,
+    )
     transport = RS232Transport(port)
     protocol = SCPIProtocol(transport)
     dev = TDKLambdaZplus(protocol)

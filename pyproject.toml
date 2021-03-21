@@ -3,8 +3,8 @@ name = "scpi"
 version = "2.2.0"
 description = "Basic idea here is to make transport-independent command sender/parser and a device baseclass that implements the common SCPI commands"
 authors = ["Eero af Heurlin <eero.afheurlin@iki.fi>"]
-homepage = "https://gitlab.com/advian-oss/python-scpi/"
-repository = "https://gitlab.com/advian-oss/python-scpi/"
+homepage = "https://github.com/rambo/python-scpi/"
+repository = "https://github.com/rambo/python-scpi/"
 license = "LGPL"
 readme = "README.rst"
 

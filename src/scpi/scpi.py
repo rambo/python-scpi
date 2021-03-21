@@ -136,6 +136,7 @@ class SCPIProtocol(object):
 
     transport = None
     lock = asyncio.Lock()
+    checking_error = False
 
     def __init__(self, transport):
         self.transport = transport
@@ -150,14 +151,20 @@ class SCPIProtocol(object):
 
     async def get_error(self):
         """Asks for the error code and string"""
-        response = await self.ask("SYST:ERR?")
-        match = ERROR_RE.search(response)
-        if not match:
-            # PONDER: Make our own exceptions ??
-            raise ValueError("Response '{:s}' does not have correct error format".format(response))
-        code = int(match.group(1))
-        errstr = match.group(2)
-        return (code, errstr)
+        if self.checking_error:
+            raise RuntimeError("Recursion on get_error detected")
+        try:
+            self.checking_error = True
+            response = await self.ask("SYST:ERR?")
+            match = ERROR_RE.search(response)
+            if not match:
+                # PONDER: Make our own exceptions ??
+                raise ValueError("Response '{:s}' does not have correct error format".format(response))
+            code = int(match.group(1))
+            errstr = match.group(2)
+            return (code, errstr)
+        finally:
+            self.checking_error = False
 
     async def check_error(self, prev_command=""):
         """Check for error and raise exception if present"""

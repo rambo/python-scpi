@@ -11,7 +11,8 @@ WRITE_TIMEOUT = 1.0
 
 class RS232SerialProtocol(serial.threaded.LineReader):
     """PySerial "protocol" class for handling stuff"""
-    ENCODING = 'ascii'
+
+    ENCODING = "ascii"
 
     def connection_made(self, transport):
         """Overridden to make sure we have write_timeout set"""
@@ -25,6 +26,7 @@ class RS232SerialProtocol(serial.threaded.LineReader):
 
 class RS232Transport(BaseTransport):
     """Uses PySerials ReaderThread in the background to save us some pain"""
+
     serialhandler = None
 
     def __init__(self, serial_device, *args, **kwargs):
@@ -37,20 +39,21 @@ class RS232Transport(BaseTransport):
         """Wrapper for write_line on the protocol with some sanity checks"""
         if not self.serialhandler or not self.serialhandler.is_alive():
             raise RuntimeError("Serial handler not ready")
-        with (await self.lock):
+        async with self.lock:
             self.serialhandler.protocol.write_line(command)
 
     async def get_response(self):
         """Serial devices send responses without needing to be told to, just reads it"""
         # TODO: we probably have a race-condition possibility here, maybe always put all received
         # messages to a stack and return popleft ??
-        with (await self.lock):
+        async with self.lock:
             response = None
 
             def set_response(message):
                 """Callback for setting the response"""
                 nonlocal response
                 response = message
+
             self.message_callback = set_response
             while response is None:
                 await asyncio.sleep(0)
@@ -62,7 +65,7 @@ class RS232Transport(BaseTransport):
         clear message is received. Device clear performs the following actions:
              - The input and output buffers of the dc source are cleared.
              - The dc source is prepared to accept a new command string."""
-        with (await self.lock):
+        async with self.lock:
             self.serialhandler.serial.send_break()
 
     async def quit(self):

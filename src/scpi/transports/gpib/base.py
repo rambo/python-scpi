@@ -54,6 +54,7 @@ class GPIBTransport(BaseTransport):
 
 class GPIBDeviceTransport(AbstractTransport):
     """Device specific transport, handles addressing transparently"""
+
     my_address = None
     lltransport = None
 

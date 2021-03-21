@@ -9,7 +9,7 @@ class HP6632B(PowerSupply, MultiMeter, SCPIDevice):
 
     async def set_low_current_mode(self, state):
         """The low-current mode is enabled by setting the range to (max) 20mA, anything over that is high-current mode.
-         This model has max 5A output"""
+        This model has max 5A output"""
         if state:
             return await self.set_measure_current_max(0.020)
         return await self.set_measure_current_max(5.0)
@@ -69,7 +69,7 @@ class HP6632B(PowerSupply, MultiMeter, SCPIDevice):
     async def set_display_mode(self, mode):
         """Set the display mode, valied values are NORM and TEXT"""
         mode = mode.upper()
-        if mode not in ('NORM', 'TEXT'):
+        if mode not in ("NORM", "TEXT"):
             raise RuntimeError("Invalid mode %s, valid ones are NORM and TEXT" % mode)
         return await self.command("DISP:MODE %s" % mode)
 
@@ -78,7 +78,7 @@ class HP6632B(PowerSupply, MultiMeter, SCPIDevice):
         NOTE: does *not* set display mode, you need to do it yourself"""
         if len(text) > 14:
             raise RuntimeError("Max text length is 14 characters")
-        if ('"' in text and "'" in text):
+        if '"' in text and "'" in text:
             raise RuntimeError("Text may only contain either single or double quotes, not both")
         if '"' in text:
             return await self.command("DISP:TEXT '%s'" % text)
@@ -89,6 +89,7 @@ def rs232(port, **kwargs):
     """Quick helper to connect via RS232 port"""
     from ..transports.rs232 import get as get_rs232
     from ..scpi import SCPIProtocol
+
     transport = get_rs232(port, **kwargs)
     protocol = SCPIProtocol(transport)
     dev = HP6632B(protocol)

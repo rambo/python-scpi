@@ -6,6 +6,7 @@ import inspect
 
 class AIOWrapper(object):
     """Wraps all coroutine methods into asyncio run_until_complete calls"""
+
     _device = None
     _loop = None
 
@@ -25,11 +26,13 @@ class AIOWrapper(object):
     def __getattr__(self, item):
         orig = getattr(self._device, item)
         if inspect.iscoroutinefunction(orig):
+
             @functools.wraps(orig)
             def wrapped(*args, **kwargs):
                 """Gets the waitable and tells the event loop to run it"""
                 waitable = orig(*args, **kwargs)
                 return self._loop.run_until_complete(waitable)
+
             return wrapped
         return orig
 

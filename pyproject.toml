@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "scpi"
+version = "2.2.0"
+description = "Basic idea here is to make transport-independent command sender/parser and a device baseclass that implements the common SCPI commands"
+authors = ["Eero af Heurlin <eero.afheurlin@iki.fi>"]
+homepage = "https://github.com/rambo/python-scpi/"
+repository = "https://github.com/rambo/python-scpi/"
+license = "LGPL"
+readme = "README.rst"
+
+[tool.black]
+line-length = 120
+target-version = ['py37']
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  |  __pycache__
+)
+'''
+
+[tool.pytest.ini_options]
+junit_family="xunit2"
+addopts="--cov=scpi --cov-branch"
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable=["fixme", "W1202", "C0330"]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+branch = true
+
+[tool.poetry.dependencies]
+python = "^3.6"
+pyserial = "^3.4"
+async-timeout = "^3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+coverage = {version = "^5.4", extras = ["toml"]}
+pytest-cov = "^2.11"
+pylint = "^2.5"
+black = "=20.8b1"
+bandit = "^1.6"
+mypy = "^0.800"
+pre-commit = "^1.20"
+pytest-asyncio = "^0.14"
+bump2version = "^1.0"
+detect-secrets = "^1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

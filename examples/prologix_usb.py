@@ -8,12 +8,12 @@ from scpi import SCPIDevice
 from scpi.transports.gpib import prologix
 from scpi.wrapper import AIOWrapper
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("run with python -i hp6632b.py /dev/ttyUSB0")
         sys.exit(1)
     # Then put to interactive mode
-    os.environ['PYTHONINSPECT'] = '1'
+    os.environ["PYTHONINSPECT"] = "1"
     # Get the low-level GPIB transport
     aiogpib = prologix.get(sys.argv[1])
     # And the mapper that handlers asyncio transparently

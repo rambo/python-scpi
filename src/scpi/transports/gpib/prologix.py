@@ -1,5 +1,7 @@
 """"Driver" for http://prologix.biz/gpib-usb-controller.html GPIB controller"""
 import asyncio
+import logging
+import threading
 
 import serial
 import serial.threaded
@@ -10,6 +12,7 @@ from .base import GPIBTransport
 
 SCAN_DEVICE_TIMEOUT = 0.5
 READ_TIMEOUT = 1.0
+LOGGER = logging.getLogger(__name__)
 
 
 class PrologixRS232SerialProtocol(RS232SerialProtocol):
@@ -67,13 +70,14 @@ class PrologixGPIBTransport(GPIBTransport):
 
                 def set_response(message):
                     """Callback for setting the response"""
-                    nonlocal response
+                    nonlocal response, self
                     response = message
+                    self.blevent.set()
 
+                self.blevent.clear()
                 self.message_callback = set_response
                 self.serialhandler.protocol.write_line(send)
-                while response is None:
-                    await asyncio.sleep(0)
+                await asyncio.get_event_loop().run_in_executor(None, self.blevent.wait)
                 return response
 
     async def set_address(self, address, secondary=None):
@@ -82,9 +86,9 @@ class PrologixGPIBTransport(GPIBTransport):
             await self.send_command("++addr %d" % address)
         else:
             await self.send_command("++addr %d %d" % (address, secondary))
-        # Wait for the address to actually be set
+
         while True:
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.001)
             resp = await self.query_address()
             if resp == (address, secondary):
                 break

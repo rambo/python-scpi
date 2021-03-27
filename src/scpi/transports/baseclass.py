@@ -4,6 +4,7 @@ All transports must define certain basic methods (check all the raise NotImpleme
 """
 import asyncio
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class BaseTransport(AbstractTransport):
     message_callback = None
     unsolicited_message_callback = None
     lock = asyncio.Lock()
+    aioevent = asyncio.Event()
+    blevent = threading.Event()
 
     async def quit(self):
         """Must shutdown all background threads (if any)"""

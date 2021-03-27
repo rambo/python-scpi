@@ -51,12 +51,13 @@ class RS232Transport(BaseTransport):
 
             def set_response(message):
                 """Callback for setting the response"""
-                nonlocal response
+                nonlocal response, self
                 response = message
+                self.blevent.set()
 
+            self.blevent.clear()
             self.message_callback = set_response
-            while response is None:
-                await asyncio.sleep(0)
+            await asyncio.get_event_loop().run_in_executor(None, self.blevent.wait)
             return response
 
     async def abort_command(self):

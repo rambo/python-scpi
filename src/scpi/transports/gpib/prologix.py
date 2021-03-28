@@ -1,15 +1,17 @@
 """"Driver" for http://prologix.biz/gpib-usb-controller.html GPIB controller"""
 import asyncio
+import logging
+import threading
 
 import serial
 import serial.threaded
-from async_timeout import timeout
 
 from ..rs232 import RS232SerialProtocol
 from .base import GPIBTransport
 
 SCAN_DEVICE_TIMEOUT = 0.5
 READ_TIMEOUT = 1.0
+LOGGER = logging.getLogger(__name__)
 
 
 class PrologixRS232SerialProtocol(RS232SerialProtocol):
@@ -61,20 +63,25 @@ class PrologixGPIBTransport(GPIBTransport):
     async def send_and_read(self, send):
         """Send a line, read the response. NOTE: This is for talking with the controller, device responses
         need to use get_response as usual"""
-        with timeout(READ_TIMEOUT):
+
+        async def _send_and_read(send) -> str:
+            """Wrap the actual work"""
             async with self.lock:
                 response = None
 
                 def set_response(message):
                     """Callback for setting the response"""
-                    nonlocal response
+                    nonlocal response, self
                     response = message
+                    self.blevent.set()
 
+                self.blevent.clear()
                 self.message_callback = set_response
                 self.serialhandler.protocol.write_line(send)
-                while response is None:
-                    await asyncio.sleep(0)
+                await asyncio.get_event_loop().run_in_executor(None, self.blevent.wait)
                 return response
+
+        return await asyncio.wait_for(_send_and_read(send), timeout=READ_TIMEOUT)
 
     async def set_address(self, address, secondary=None):
         """Set the address we want to talk to"""
@@ -82,9 +89,9 @@ class PrologixGPIBTransport(GPIBTransport):
             await self.send_command("++addr %d" % address)
         else:
             await self.send_command("++addr %d %d" % (address, secondary))
-        # Wait for the address to actually be set
+
         while True:
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.001)
             resp = await self.query_address()
             if resp == (address, secondary):
                 break
@@ -144,13 +151,18 @@ class PrologixGPIBTransport(GPIBTransport):
         prev_read_tmo_ms = await self.send_and_read("++read_tmo_ms")
         self.serialhandler.protocol.write_line("++read_tmo_ms %d" % int((SCAN_DEVICE_TIMEOUT / 2) * 1000))
         for addr in range(0, 31):  # 0-30 inclusive
-            with timeout(SCAN_DEVICE_TIMEOUT):
-                try:
-                    await self.set_address(addr)
-                    await self.poll()
-                    found_addresses.append(addr)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    pass
+
+            async def _scan_addr(addr) -> None:
+                """Sacn single address"""
+                nonlocal found_addresses
+                await self.set_address(addr)
+                await self.poll()
+                found_addresses.append(addr)
+
+            try:
+                await asyncio.wait_for(_scan_addr(addr), timeout=SCAN_DEVICE_TIMEOUT)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
         self.serialhandler.protocol.write_line("++read_tmo_ms " + prev_read_tmo_ms)
         # Wait a moment for things to settle
         await asyncio.sleep(float(prev_read_tmo_ms) / 1000)

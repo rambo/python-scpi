@@ -3,8 +3,6 @@ import asyncio
 import decimal
 import re
 
-from async_timeout import timeout
-
 from .errors import CommandError
 from .transports.baseclass import AbstractTransport
 
@@ -175,14 +173,19 @@ class SCPIProtocol(object):
     async def command(self, command, cmd_timeout=COMMAND_DEFAULT_TIMEOUT, abort_on_timeout=True):
         """Sends a command, does not wait for response"""
         try:
-            with timeout(cmd_timeout):
+
+            async def _command() -> None:
+                """Wrap the actual work"""
+                nonlocal self
                 async with self.lock:
                     await self.transport.send_command(command)
+
+            await asyncio.wait_for(_command(command), timeout=cmd_timeout)
         except (asyncio.TimeoutError, asyncio.CancelledError) as err:
             # check for the actual error if available
             await self.check_error(command)
             if abort_on_timeout:
-                self.abort_command()
+                await self.abort_command()
             # re-raise the timeout if no other error found
             raise err
         # other errors are allowed to bubble-up as-is
@@ -195,11 +198,14 @@ class SCPIProtocol(object):
     async def ask(self, command, cmd_timeout=COMMAND_DEFAULT_TIMEOUT, abort_on_timeout=True):
         """Send a command and waits for response, returns the response"""
         try:
-            with timeout(cmd_timeout):
+
+            async def _ask(command: str) -> str:
+                """Wrap the actual work"""
                 async with self.lock:
                     await self.transport.send_command(command)
                     return await self.transport.get_response()
 
+            return await asyncio.wait_for(_ask(command), timeout=cmd_timeout)
         except (asyncio.TimeoutError, asyncio.CancelledError) as err:
             # check for the actual error if available
             await self.check_error(command)

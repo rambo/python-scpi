@@ -174,7 +174,7 @@ class SCPIProtocol(object):
         """Sends a command, does not wait for response"""
         try:
 
-            async def _command() -> None:
+            async def _command(command: str) -> None:
                 """Wrap the actual work"""
                 nonlocal self
                 async with self.lock:

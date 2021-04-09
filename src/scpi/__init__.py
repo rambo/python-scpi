@@ -3,3 +3,5 @@ transports are separate from devices (so you can use for example hp6632b with ei
 __version__ = "2.3.1"  # NOTE Use `bump2version --config-file patch` to bump versions correctly
 from .scpi import SCPIProtocol, SCPIDevice
 from .errors import CommandError
+
+__all__ = ["SCPIProtocol", "CommandError", "SCPIDevice"]

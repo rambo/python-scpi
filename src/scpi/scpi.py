@@ -158,7 +158,7 @@ class SCPIProtocol:
             raise RuntimeError("Recursion on get_error detected")
         try:
             self._checking_error = True
-            response = await self.ask("SYST:ERR?")
+            response = await self.ask("SYST:ERR?", auto_check_error=False)
             match = ERROR_RE.search(response)
             if not match:
                 # PONDER: Make our own exceptions ??
@@ -176,7 +176,12 @@ class SCPIProtocol:
             raise CommandError(prev_command, code, errstr)
 
     async def command(
-        self, command: str, cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT, abort_on_timeout: bool = True
+        self,
+        command: str,
+        cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT,
+        abort_on_timeout: bool = True,
+        *,
+        auto_check_error: bool = True,
     ) -> None:
         """Sends a command, does not wait for response"""
         try:
@@ -188,13 +193,16 @@ class SCPIProtocol:
                     await self.transport.send_command(command)
 
             await asyncio.wait_for(_command(command), timeout=cmd_timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError) as err:
+        except asyncio.TimeoutError as err:
             # check for the actual error if available
-            await self.check_error(command)
+            if auto_check_error:
+                await self.check_error(command)
             if abort_on_timeout:
                 await self.abort_command()
             # re-raise the timeout if no other error found
             raise err
+        except asyncio.CancelledError:
+            LOGGER.info("Cancelled")
         # other errors are allowed to bubble-up as-is
 
     async def safe_command(self, command: str, *args: Any, **kwargs: Any) -> None:
@@ -203,7 +211,12 @@ class SCPIProtocol:
         await self.check_error(command)
 
     async def ask(
-        self, command: str, cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT, abort_on_timeout: bool = True
+        self,
+        command: str,
+        cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT,
+        abort_on_timeout: bool = True,
+        *,
+        auto_check_error: bool = True,
     ) -> str:
         """Send a command and waits for response, returns the response"""
         try:
@@ -216,13 +229,18 @@ class SCPIProtocol:
                     return await self.transport.get_response()
 
             return await asyncio.wait_for(_ask(command), timeout=cmd_timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError) as err:
+        except asyncio.TimeoutError as err:
             # check for the actual error if available
-            await self.check_error(command)
+            if auto_check_error:
+                await self.check_error(command)
             if abort_on_timeout:
                 self.abort_command()
             # re-raise the timeout if no other error found
             raise err
+        except asyncio.CancelledError:
+            LOGGER.info("Cancelled")
+            # gotta return something or raise an error
+            raise
         # other errors are allowed to bubble-up as-is
 
     async def safe_ask(self, command: str, *args: Any, **kwargs: Any) -> str:

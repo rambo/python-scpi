@@ -15,8 +15,8 @@ LOGGER = logging.getLogger(__name__)
 class TCPTransport(BaseTransport):
     """TCP based transport"""
 
-    ipaddr: str = field()  # type: ignore # workaround nondefault cannot follow default
-    port: int = field()  # type: ignore # workaround nondefault cannot follow default
+    ipaddr: Optional[str] = field(default=None)
+    port: Optional[int] = field(default=None)
     reader: Optional[asyncio.StreamReader] = field(default=None)
     writer: Optional[asyncio.StreamWriter] = field(default=None)
 
@@ -28,6 +28,8 @@ class TCPTransport(BaseTransport):
 
     def __post_init__(self) -> None:
         """Call open_connection in an eventloop"""
+        if self.ipaddr is None or self.port is None:
+            raise ValueError("ipaddr and port must be given")
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.open_connection(self.ipaddr, self.port))
 

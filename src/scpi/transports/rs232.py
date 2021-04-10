@@ -33,11 +33,13 @@ class RS232SerialProtocol(serial.threaded.LineReader):  # type: ignore
 class RS232Transport(BaseTransport):
     """Uses PySerials ReaderThread in the background to save us some pain"""
 
-    serialdevice: serial.SerialBase = field(repr=True)  # type: ignore # workaround nondefault cannot follow default
+    serialdevice: Optional[serial.SerialBase] = field(default=None)
     _serialhandler: Optional[serial.threaded.ReaderThread] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Initialize the transport"""
+        if not self.serialdevice:
+            raise ValueError("serialdevice must be given")
         self._serialhandler = serial.threaded.ReaderThread(self.serialdevice, RS232SerialProtocol)
         self._serialhandler.start()
         self._serialhandler.protocol.handle_line = self.message_received

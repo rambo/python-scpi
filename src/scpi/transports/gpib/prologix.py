@@ -21,8 +21,8 @@ class PrologixRS232SerialProtocol(RS232SerialProtocol):
     TERMINATOR = b"\n"
 
 
-@dataclass  # type ignored to workaround nondefault cannot follow default
-class PrologixGPIBTransport(GPIBTransport, RS232Transport):  # type: ignore
+@dataclass
+class PrologixGPIBTransport(GPIBTransport, RS232Transport):
     """Transport "driver" for the Prologix USB-GPIB controller (v6 protocol)"""
 
     def __post_init__(self) -> None:

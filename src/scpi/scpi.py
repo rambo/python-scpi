@@ -140,7 +140,7 @@ class STBBit(BitEnum):
 class SCPIProtocol:
     """Implements the SCPI protocol talks over the given transport"""
 
-    transport: BaseTransport = field()
+    transport: Union[BaseTransport, GPIBDeviceTransport, GPIBTransport] = field()
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _checking_error: bool = field(default=False)
 
@@ -249,7 +249,7 @@ class SCPIDevice:  # pylint: disable=R0904
         protocol: Optional[SCPIProtocol] = None
         if isinstance(self.instancefrom, SCPIProtocol):
             protocol = self.instancefrom
-        if isinstance(self.instancefrom, BaseTransport):
+        if isinstance(self.instancefrom, (BaseTransport, GPIBDeviceTransport, GPIBTransport)):
             protocol = SCPIProtocol(self.instancefrom)
         if isinstance(self.instancefrom, SCPIDevice):
             protocol = self.instancefrom.protocol

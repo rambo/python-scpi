@@ -159,7 +159,7 @@ class PrologixGPIBTransport(GPIBTransport, RS232Transport):
         found_addresses: List[int] = []
         # We do not lock on this level since the commands we use need to manipulate the lock
         prev_addr = await self.query_address()
-        prev_read_tmo_ms = await self.send_and_read("++read_tmo_ms")
+        prev_read_tmo_ms = int(await self.send_and_read("++read_tmo_ms"))
         new_read_tmo_ms = int((SCAN_DEVICE_TIMEOUT / 2) * 1000)
         self._serialhandler.protocol.write_line(f"++read_tmo_ms {new_read_tmo_ms:d}")
         for addr in range(0, 31):  # 0-30 inclusive

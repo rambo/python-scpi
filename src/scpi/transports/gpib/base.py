@@ -59,6 +59,10 @@ class GPIBDeviceTransport(AbstractTransport):
         await self._set_ll_address()
         await self.lltransport.send_loc()
 
+    async def quit(self) -> None:
+        """Nop for devices"""
+        LOGGER.debug("quit should not be called on device level but we must have the method for type compatibility")
+
 
 class GPIBTransport(BaseTransport, ABC):
     """Baseclass for GPIB transports"""

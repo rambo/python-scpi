@@ -1,17 +1,20 @@
 """Helper class to allow using of device in traditional blocking style without having to deal with the ioloop"""
+from typing import Any
 import asyncio
 import functools
 import inspect
+import logging
 
 
-class AIOWrapper(object):
+LOGGER = logging.getLogger(__name__)
+
+
+class AIOWrapper:  # pylint: disable=R0903
     """Wraps all coroutine methods into asyncio run_until_complete calls"""
 
-    _device = None
-    _loop = None
-
-    def __init__(self, device):
-        self._device = device
+    def __init__(self, to_be_wrapped: Any) -> None:
+        """Init wrapper for device"""
+        self._device = to_be_wrapped
         self._loop = asyncio.get_event_loop()
         for attr in functools.WRAPPER_ASSIGNMENTS:
             try:
@@ -20,30 +23,32 @@ class AIOWrapper(object):
                 try:
                     setattr(self.__class__, attr, getattr(self._device.__class__, attr))
                 except AttributeError:
-                    pass
-                    # print("Could not copy {}".format(attr))
+                    LOGGER.debug("Could not copy {}".format(attr))
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
+        """Get a memeber, if it's a coroutine autowrap it to eventloop run"""
         orig = getattr(self._device, item)
         if inspect.iscoroutinefunction(orig):
 
             @functools.wraps(orig)
-            def wrapped(*args, **kwargs):
+            def wrapped(*args: Any, **kwargs: Any) -> Any:
                 """Gets the waitable and tells the event loop to run it"""
+                nonlocal self
                 waitable = orig(*args, **kwargs)
                 return self._loop.run_until_complete(waitable)
 
             return wrapped
         return orig
 
-    def __dir__(self):
+    def __dir__(self) -> Any:
+        """Proxy the dir on the device"""
         return dir(self._device)
 
-    def quit(self):
+    def quit(self) -> None:
         """Calls the device.quit via loop and closes the loop"""
         self._loop.run_until_complete(self._device.quit())
         self._loop.close()
 
 
-class DeviceWrapper(AIOWrapper):
+class DeviceWrapper(AIOWrapper):  # pylint: disable=R0903
     """Legacy name for the AsyncIO wrapper class for backwards compatibility"""

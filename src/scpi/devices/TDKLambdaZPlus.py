@@ -1,17 +1,25 @@
-"""
-Created on febrary 21 2020
-
-@author: qmor
-"""
+"""TDK Lambda power supplies"""
+# pylint: disable=C0103
+from typing import Optional, Union, Any
+from dataclasses import dataclass, field
 import decimal
+import logging
 
-from ..scpi import SCPIDevice
-from ..transports.tcp import TCPTransport
+import serial as pyserial  # type: ignore
+
+from ..scpi import SCPIDevice, SCPIProtocol
+from ..transports.rs232 import RS232Transport
+from ..transports.tcp import get as get_tcp
 from .generic import PowerSupply
+
+StrIntCombo = Union[str, int]
+LOGGER = logging.getLogger(__name__)
 
 
 class TDKSCPI(SCPIDevice):
-    async def set_power_on_status_clear(self, setting):
+    """Baseclass for TDK SCPI devices"""
+
+    async def set_power_on_status_clear(self, setting: StrIntCombo) -> None:
         """
         Set the Power-On Status Clear setting.
         * ON/1/True - This choice enables the power-on clearing of the listed registers
@@ -27,27 +35,27 @@ class TDKSCPI(SCPIDevice):
             raise ValueError
         await super().set_power_on_status_clear(setting)
 
-    async def restore_state(self, state):
+    async def restore_state(self, state: int) -> None:
         """
         Restores the power supply to a state previously stored in memory by *SAV command.
         """
         state = int(state)
         if state not in (1, 2, 3, 4):
-            raise ValueError
+            raise ValueError("invalid state")
 
         await super().restore_state(state)
 
-    async def save_state(self, state):
+    async def save_state(self, state: int) -> None:
         """
         The SAV command saves all applied configuration settings.
         """
         state = int(state)
         if state not in (1, 2, 3, 4):
-            raise ValueError
+            raise ValueError("Invalid state")
 
         await super().save_state(state)
 
-    async def power_on_state(self, setting):
+    async def power_on_state(self, setting: StrIntCombo) -> None:
         """
         Set the power-on behavior of the system
         * 1 - AUTO - The power supply output will return to its previous value
@@ -66,18 +74,14 @@ class TDKSCPI(SCPIDevice):
         await super().power_on_state(setting)
 
 
+@dataclass
 class TDKLambdaZplus(PowerSupply, TDKSCPI):
-    def __init__(self, protocol, use_safe_variants=True, voltage=20, current=10):
-        """
-        Initialize the device with voltage [V] and current [A] limits.
-        """
+    """TDK Lambda Z+ power supply"""
 
-        self.voltage_limit = voltage
-        self.current_limit = current
+    voltage_limit: float = field(default=20.0)
+    current_limit: float = field(default=10.0)
 
-        super().__init__(protocol, use_safe_variants=use_safe_variants)
-
-    async def measure_current(self, extra_params=""):
+    async def measure_current(self, extra_params: str = "") -> decimal.Decimal:
         """
         Returns the actual output current in amps.
 
@@ -85,10 +89,10 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
                 for this device is ":DC"
         """
 
-        resp = await self.ask("MEAS:CURR%s?" % extra_params)
+        resp = await self.ask(f"MEAS:CURR{extra_params}?")
         return decimal.Decimal(resp)
 
-    async def measure_voltage(self, extra_params=""):
+    async def measure_voltage(self, extra_params: str = "") -> decimal.Decimal:
         """
         Returns the actual output voltage in volts.
 
@@ -96,10 +100,10 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
                 for this device is ":DC"
         """
 
-        resp = await self.ask("MEAS:VOLT%s?" % extra_params)
+        resp = await self.ask(f"MEAS:VOLT{extra_params}?")
         return decimal.Decimal(resp)
 
-    async def measure_power(self, extra_params=""):
+    async def measure_power(self, extra_params: str = "") -> decimal.Decimal:
         """
         Returns the actual output power in watts.
 
@@ -107,32 +111,32 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
                 for this device is ":DC"
         """
 
-        resp = await self.ask("MEAS:POW%s?" % extra_params)
+        resp = await self.ask(f"MEAS:POW{extra_params}?")
         return decimal.Decimal(resp)
 
-    async def select_active_instrument(self, id):
+    async def select_active_instrument(self, select_id: int) -> None:
         """
         Select the power supply for communication.
 
         id: the ID of the power supply to select.  int from 1-31
         """
 
-        _id = int(id)
+        _id = int(select_id)
 
-        if _id < 1 or id > 31:
+        if _id < 1 or _id > 31:
             raise ValueError("id %d is outside of the valid id range" % _id)
 
-        await self.command("INSTrument:NSELect %d" % _id)
+        await self.command(f"INSTrument:NSELect {_id:d}")
 
-    async def query_active_instrument(self):
+    async def query_active_instrument(self) -> int:
         """
         Returns the ID of the active instrument.
         """
 
         resp = await self.ask("INSTrument:NSELect?")
-        return decimal.Decimal(resp)
+        return int(resp)
 
-    async def couple_mode(self, couple="NONE"):
+    async def couple_mode(self, couple: str = "NONE") -> None:
         """
         Couple for all Z+ power supplies.
         """
@@ -144,16 +148,16 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         else:
             raise ValueError("Argument '%s' not valid for INST:COUP" % couple)
 
-    async def set_voltage_protection(self, volts):
+    async def set_voltage_protection(self, volts: Any) -> None:
         """
         Set over-voltage protection level.
         """
 
         _volts = str(volts).upper()
-
+        # FIXME: shouldn't we pass _volts here ?? Also what are valid types/values ??
         await self.command("VOLTage:PROTection:LEVel")
 
-    async def query_voltage_protection(self, mode=None):
+    async def query_voltage_protection(self, mode: Optional[str] = None) -> decimal.Decimal:
         """
         Query the voltage protection level.  Depending on mode, returns the current level, the
         minimum level, or the maximum level.
@@ -168,10 +172,10 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         if mode is None:
             resp = await self.ask("VOLTage:PROTection:LEVel?")
         else:
-            resp = await self.ask("VOLTage:PROTection:LEVel? %s" % mode)
+            resp = await self.ask(f"VOLTage:PROTection:LEVel? {mode}")
         return decimal.Decimal(resp)
 
-    async def flash_display(self, setting):
+    async def flash_display(self, setting: StrIntCombo) -> None:
         """
         Make the front panel voltage and Current displays flash.
         """
@@ -183,9 +187,9 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
             setting = "0"
         else:
             raise ValueError
-        await self.command("DISPlay:FLASh %s" % setting)
+        await self.command(f"DISPlay:FLASh {setting}")
 
-    async def global_enable(self, setting):
+    async def global_enable(self, setting: StrIntCombo) -> None:
         """
         Set enable status of all units.
         """
@@ -197,25 +201,25 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
             setting = "0"
         else:
             raise ValueError
-        await self.command("GLOBal:OUTPut:STATe %s" % setting)
+        await self.command(f"GLOBal:OUTPut:STATe {setting}")
 
-    async def global_set_voltage(self, volts):
+    async def global_set_voltage(self, volts: float) -> None:
         """
         Set enable status of all units.
         """
 
         _volts = str(volts)
+        # FIXME: probably just using volts:f would work fine
+        await self.command(f"GLOBal:VOLTage:AMPLitude {_volts}")
 
-        await self.command("GLOBal:VOLTage:AMPLitude %s" % _volts)
-
-    async def global_reset(self):
+    async def global_reset(self) -> None:
         """
         Reset all units.
         """
 
         await self.command("GLOBal:*RST")
 
-    async def set_voltage(self, millivolts, extra_params=""):
+    async def set_voltage(self, millivolts: float, extra_params: str = "") -> None:
         """
         Sets the desired output voltage (but does not auto-enable outputs) in
         millivolts, pass extra_params string to append to the command (like ":PROT")
@@ -228,7 +232,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
 
         await super().set_voltage(millivolts, extra_params=extra_params)
 
-    async def set_current(self, milliamps, extra_params=""):
+    async def set_current(self, milliamps: float, extra_params: str = "") -> None:
         """
         Sets the desired output current (but does not auto-enable outputs) in
         milliamps, pass extra_params string to append to the command (like ":TRIG")
@@ -242,35 +246,29 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         await super().set_current(milliamps, extra_params=extra_params)
 
 
-def tcp(ip, port):
+def tcp(ipaddr: str, port: int) -> TDKLambdaZplus:
     """Quick helper to connect via TCP"""
-    from ..transports.tcp import get as get_tcp
-    from ..scpi import SCPIProtocol
 
-    transport = get_tcp(ip, port)
+    transport = get_tcp(ipaddr, port)
     protocol = SCPIProtocol(transport)
     dev = TDKLambdaZplus(protocol)
     return dev
 
 
-def serial(port, baudrate=9600):
+def serial(serial_url: str, baudrate: int = 9600) -> TDKLambdaZplus:
     """ Quick helper to connect via serial """
-    from ..transports.rs232 import RS232Transport
-    from ..scpi import SCPIProtocol
-    import serial
-
-    port = serial.Serial(
-        port,
+    port = pyserial.serial_for_url(
+        serial_url,
         baudrate=baudrate,
         bytesize=8,
-        parity=serial.PARITY_NONE,
+        parity=pyserial.PARITY_NONE,
         stopbits=1,
         xonxoff=False,
         rtscts=False,
         dsrdtr=False,
         timeout=10,
     )
-    transport = RS232Transport(port)
+    transport = RS232Transport(serialdevice=port)
     protocol = SCPIProtocol(transport)
     dev = TDKLambdaZplus(protocol)
     return dev

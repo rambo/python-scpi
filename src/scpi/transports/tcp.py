@@ -22,7 +22,7 @@ class TCPTransport(BaseTransport):
 
     async def open_connection(self, ipaddr: str, port: int) -> None:
         """Open a connection (also update the IP/port)"""
-        self.reader, self.writer = await asyncio.open_connection(ipaddr, port, loop=asyncio.get_event_loop())
+        self.reader, self.writer = await asyncio.open_connection(ipaddr, port)
         self.ipaddr = ipaddr
         self.port = port
 

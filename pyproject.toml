@@ -44,21 +44,21 @@ omit = ["tests/*"]
 branch = true
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.9"
 pyserial = "^3.4"
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
-coverage = {version = "^5.4", extras = ["toml"]}
-pytest-cov = "^2.11"
-pylint = "^2.5"
-black = "=20.8b1"
-bandit = "^1.6"
-mypy = "^0.800"
-pre-commit = "^1.20"
-pytest-asyncio = "^0.14"
+pytest = "^8.0"
+coverage = "^7.4"
+pytest-cov = "^4.1"
+pylint = "^3.0"
+black = "^24.1"
+bandit = "^1.7"
+mypy = "^1.8"
+pre-commit = "^3.6"
+pytest-asyncio = ">=0.21,<1.0" # caret behaviour on 0.x is to lock to 0.x.*
 bump2version = "^1.0"
-detect-secrets = "^1.0"
+detect-secrets = "^1.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

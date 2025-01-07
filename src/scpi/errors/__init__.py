@@ -1,4 +1,5 @@
 """SCPI module specific errors"""
+
 from typing import Any
 
 

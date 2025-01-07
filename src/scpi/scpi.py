@@ -1,4 +1,5 @@
 """Generic SCPI commands, allow sending and reading of raw data, helpers to parse information"""
+
 from typing import Any, Tuple, Sequence, Union, Optional, cast
 import asyncio
 import re
@@ -13,6 +14,7 @@ from .transports.gpib import GPIBDeviceTransport, GPIBTransport
 COMMAND_DEFAULT_TIMEOUT = 1.0
 ERROR_RE = re.compile(r'([+-]?\d+),"(.*?)"')
 LOGGER = logging.getLogger(__name__)
+
 
 # FIXME rename to mixin and use as such
 class BitEnum:  # pylint: disable=R0903
@@ -234,7 +236,7 @@ class SCPIProtocol:
             if auto_check_error:
                 await self.check_error(command)
             if abort_on_timeout:
-                self.abort_command()
+                await self.abort_command()
             # re-raise the timeout if no other error found
             raise err
         except asyncio.CancelledError:

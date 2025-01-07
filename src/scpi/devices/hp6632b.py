@@ -1,4 +1,5 @@
 """HP/Agilent 3362B specific device implementation and helpers"""
+
 from typing import Any
 import logging
 import decimal

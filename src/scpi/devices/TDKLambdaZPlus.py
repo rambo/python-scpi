@@ -1,4 +1,5 @@
 """TDK Lambda power supplies"""
+
 # pylint: disable=C0103
 from typing import Optional, Union, Any
 from dataclasses import dataclass, field
@@ -256,7 +257,7 @@ def tcp(ipaddr: str, port: int) -> TDKLambdaZplus:
 
 
 def serial(serial_url: str, baudrate: int = 9600) -> TDKLambdaZplus:
-    """ Quick helper to connect via serial """
+    """Quick helper to connect via serial"""
     port = pyserial.serial_for_url(
         serial_url,
         baudrate=baudrate,

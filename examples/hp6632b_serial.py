@@ -7,6 +7,8 @@ import sys
 from scpi.devices import hp6632b
 from scpi.wrapper import AIOWrapper
 
+# pylint: disable=R0801
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(f"run with python -i {__file__} /dev/ttyUSB0")

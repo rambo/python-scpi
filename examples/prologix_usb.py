@@ -10,6 +10,8 @@ from scpi.wrapper import AIOWrapper
 from scpi.devices.hp6632b import HP6632B
 from scpi.devices.generic import MultiMeter
 
+# pylint: disable=R0801
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(f"run with python -i {__file__} /dev/ttyUSB0")

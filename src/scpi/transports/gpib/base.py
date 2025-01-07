@@ -1,4 +1,5 @@
 """GPIB Related baseclasses"""
+
 from __future__ import annotations
 from typing import Optional, Tuple, Sequence, Union
 from abc import ABC, abstractmethod

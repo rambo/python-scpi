@@ -2,6 +2,7 @@
 
 All transports must define certain basic methods (check all the raise NotImplementedError)
 """
+
 from typing import Optional, Callable
 import asyncio
 import logging
@@ -18,7 +19,7 @@ class AbstractTransport(ABC):  # pylint: disable=R0903
     the low-level transport methods"""
 
 
-@dataclass  # type: ignore # there's something weird with dataclasses and ABCs
+@dataclass
 class BaseTransport(AbstractTransport, ABC):
     """Baseclass for SCPI tranport layers, abstracts away details, must be subclasses to implement"""
 

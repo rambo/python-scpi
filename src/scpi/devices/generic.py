@@ -1,4 +1,5 @@
 """Mixins for different device functionalities"""
+
 import decimal
 
 from ..scpi import SCPIDevice

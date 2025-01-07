@@ -37,7 +37,7 @@ addopts="--cov=scpi --cov-branch"
 max-line-length = 120
 
 [tool.pylint.messages_control]
-disable=["fixme", "W1202", "C0330"]
+disable=["fixme", "W1202", "C0209"]
 
 [tool.coverage.run]
 omit = ["tests/*"]

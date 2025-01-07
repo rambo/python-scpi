@@ -1,4 +1,5 @@
 """Package level tests"""
+
 from scpi import __version__
 
 

@@ -1,4 +1,5 @@
 """Helper class to allow using of device in traditional blocking style without having to deal with the ioloop"""
+
 from typing import Any
 import asyncio
 import functools

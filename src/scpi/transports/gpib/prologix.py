@@ -1,4 +1,5 @@
 """"Driver" for http://prologix.biz/gpib-usb-controller.html GPIB controller"""
+
 from typing import Optional, Sequence, List, Any, Tuple, cast
 import asyncio
 import logging
@@ -77,6 +78,7 @@ class PrologixGPIBTransport(GPIBTransport, RS232Transport):
             async with self.lock:
                 response: Optional[str] = None
 
+                # pylint: disable=R0801
                 def set_response(message: str) -> None:
                     """Callback for setting the response"""
                     nonlocal response, self

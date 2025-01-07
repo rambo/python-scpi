@@ -1,4 +1,5 @@
 """Serial port transport layer"""
+
 from __future__ import annotations
 from typing import Optional, Any, Dict, cast
 import asyncio
@@ -58,6 +59,7 @@ class RS232Transport(BaseTransport):
         async with self.lock:
             response: Optional[str] = None
 
+            # pylint: disable=R0801
             def set_response(message: str) -> None:
                 """Callback for setting the response"""
                 nonlocal response, self

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "scpi"
-version = "2.5.0"
+version = "2.5.1"
 description = "Basic idea here is to make transport-independent command sender/parser and a device baseclass that implements the common SCPI commands"
 authors = ["Eero af Heurlin <eero.afheurlin@iki.fi>"]
 homepage = "https://github.com/rambo/python-scpi/"

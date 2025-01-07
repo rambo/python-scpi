@@ -31,11 +31,13 @@ class TCPTransport(BaseTransport):
         """Call open_connection in an eventloop"""
         if self.ipaddr is None or self.port is None:
             raise ValueError("ipaddr and port must be given")
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.open_connection(self.ipaddr, self.port))
 
     async def send_command(self, command: str) -> None:
         """Write command to the stream"""
+        if not self.writer:
+            assert self.ipaddr
+            assert self.port
+            await self.open_connection(self.ipaddr, self.port)
         if not self.writer:
             raise RuntimeError("Writer not set")
         async with self.lock:
@@ -46,6 +48,10 @@ class TCPTransport(BaseTransport):
 
     async def get_response(self) -> str:
         """Get response from the stream"""
+        if not self.reader:
+            assert self.ipaddr
+            assert self.port
+            await self.open_connection(self.ipaddr, self.port)
         if not self.reader:
             raise RuntimeError("Reader not set")
         async with self.lock:

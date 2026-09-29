@@ -87,6 +87,12 @@ those files and ``uv.lock`` together. It does not automatically commit, tag,
 publish or push. Builds retain ``LICENSE`` and ``py.typed`` and exclude the
 local, untracked ``HANDOFF.md`` from source distributions.
 
+After a merge or direct push to ``main``, successful Python and container checks
+automatically create a Git tag matching ``project.version`` (for example,
+``2.6.0``). Existing tags are left unchanged, so bump the version before merging
+a new release. The tagging job uses ``GITHUB_TOKEN`` with ``contents: write``;
+it does not publish packages or create GitHub releases.
+
 Containers
 ----------
 

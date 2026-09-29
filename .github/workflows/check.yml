@@ -1,0 +1,34 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.12'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run --locked prek run --all-files
+      - run: uv run --locked pytest
+      - run: uv run --locked bandit -r src --skip B101
+      - run: uv build
+  containers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [debian, alpine]
+        target: [test, tox, devel_shell, production]
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./run_tests.sh
+        env:
+          VARIANTS: ${{ matrix.variant }}
+          TARGETS: ${{ matrix.target }}

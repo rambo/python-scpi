@@ -6,7 +6,10 @@ authors = [{name = "Eero af Heurlin", email = "eero.afheurlin@iki.fi"}]
 license = "LGPL-2.1-or-later"
 readme = "README.rst"
 requires-python = ">=3.12,<4.0"
-dependencies = ["pyserial>=3.4,<4.0"]
+dependencies = [
+    "pyserial>=3.4,<4.0",
+    "pyserial-asyncio>=0.6,<0.7",
+]
 
 [project.urls]
 Homepage = "https://github.com/rambo/python-scpi/"

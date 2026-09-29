@@ -661,6 +661,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyserial-asyncio"
+version = "0.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyserial" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/9a/8477699dcbc1882ea51dcff4d3c25aa3f2063ed8f7d7a849fd8f610506b6/pyserial-asyncio-0.6.tar.gz", hash = "sha256:b6032923e05e9d75ec17a5af9a98429c46d2839adfaf80604d52e0faacd7a32f", size = 31322, upload-time = "2021-09-30T22:29:02.174Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/24/c820cf15f87f7b164e83710c1852d4f900d9793961579e5ef64189bc0c10/pyserial_asyncio-0.6-py3-none-any.whl", hash = "sha256:de9337922619421b62b9b1a84048634b3ac520e1d690a674ed246a2af7ce1fc5", size = 7594, upload-time = "2021-09-30T22:29:00.12Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -854,6 +866,7 @@ version = "2.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "pyserial" },
+    { name = "pyserial-asyncio" },
 ]
 
 [package.dev-dependencies]
@@ -873,7 +886,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyserial", specifier = ">=3.4,<4.0" }]
+requires-dist = [
+    { name = "pyserial", specifier = ">=3.4,<4.0" },
+    { name = "pyserial-asyncio", specifier = ">=0.6,<0.7" },
+]
 
 [package.metadata.requires-dev]
 dev = [

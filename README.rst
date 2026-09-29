@@ -3,7 +3,7 @@ scpi
 ====
 
 Transport-independent, asyncio-based SCPI commands and device helpers for
-Python 3.12, 3.13 and 3.14. Serial transport uses pyserial; VISA is not required.
+Python 3.12, 3.13 and 3.14. Serial transport uses pyserial-asyncio; VISA is not required.
 
 Usage
 -----
@@ -30,6 +30,29 @@ The example leaves an interactive ``dev`` object and registers shutdown with
 ``atexit``. See ``examples/`` for TCP and Prologix GPIB examples. Physical
 instrument access and serial-port permissions are required for those examples.
 
+Serial I/O
+----------
+
+Serial factories and ``RS232Transport(serialdevice=port)`` remain synchronous.
+They open or accept a pyserial port, then attach pyserial-asyncio to the running
+event loop on the first command or read. Use one event loop per transport and
+always await ``quit()`` (or call the blocking wrapper's ``quit()``).
+
+Ordinary serial commands and replies use ASCII and CRLF; Prologix uses LF.
+Replies are buffered, including replies received before ``get_response()``.
+Response waits are cancellable; a disconnect fails pending reads. Explicit
+message callbacks remain supported, and unsolicited callbacks receive lines
+when no response read is pending. Serial BREAK uses an asynchronous delay.
+
+Prologix initialization runs automatically on first use. To reset the controller
+explicitly, use ``await transport.initialize_controller()``; this method is now
+asynchronous. Serial read/write timeouts become zero for nonblocking I/O;
+SCPI command timeouts and asynchronous write flow control bound waits instead.
+
+On POSIX, pyserial-asyncio requires a serial file descriptor. In-memory
+``loop://`` ports do not provide one; the tests use pseudo-terminals instead.
+See the `pyserial-asyncio documentation <https://pyserial-asyncio.readthedocs.io/en/latest/shortintro.html>`_.
+
 Development
 -----------
 
@@ -44,7 +67,8 @@ The project uses uv, Hatchling, Ruff, strict Pyrefly and prek::
 
 Run the supported Python matrix with ``uv run --locked tox``. Tox needs Python
 3.12, 3.13 and 3.14 available; ``uv python install 3.12 3.13 3.14`` can install
-them. Tests use fake devices and pyserial loopback ports and need no hardware.
+them. Tests use fake devices and POSIX pseudo-terminals and need no hardware.
+Serial integration tests are skipped on Windows.
 The Bandit B101 exclusion permits existing internal assertions.
 
 Release preparation

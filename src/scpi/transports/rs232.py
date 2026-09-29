@@ -1,13 +1,14 @@
 """Serial port transport layer"""
 
 from __future__ import annotations
-from typing import Optional, Any, Dict, cast
+
 import asyncio
 import logging
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, Self, cast, override
 
-import serial  # type: ignore
-import serial.threaded  # type: ignore
+import serial
+import serial.threaded
 
 from .baseclass import BaseTransport
 
@@ -15,17 +16,19 @@ LOGGER = logging.getLogger(__name__)
 WRITE_TIMEOUT = 1.0
 
 
-class RS232SerialProtocol(serial.threaded.LineReader):  # type: ignore
+class RS232SerialProtocol(serial.threaded.LineReader):
     """PySerial "protocol" class for handling stuff"""
 
     ENCODING = "ascii"
 
-    def connection_made(self, transport: RS232Transport) -> None:
+    @override
+    def connection_made(self, transport: serial.threaded.ReaderThread[Self]) -> None:
         """Overridden to make sure we have write_timeout set"""
         super().connection_made(transport)
         # Make sure we have a write timeout of expected size
-        self.transport.write_timeout = WRITE_TIMEOUT
+        transport.serial.write_timeout = WRITE_TIMEOUT
 
+    @override
     def handle_line(self, line: str) -> None:
         raise RuntimeError("This should have been overloaded by RS232Transport")
 
@@ -34,17 +37,26 @@ class RS232SerialProtocol(serial.threaded.LineReader):  # type: ignore
 class RS232Transport(BaseTransport):
     """Uses PySerials ReaderThread in the background to save us some pain"""
 
-    serialdevice: Optional[serial.SerialBase] = field(default=None)
-    _serialhandler: Optional[serial.threaded.ReaderThread] = field(default=None, repr=False)
+    serialdevice: serial.Serial | None = field(default=None)
+    _serialhandler: serial.threaded.ReaderThread[RS232SerialProtocol] | None = field(default=None, repr=False)
+    _protocol_type: ClassVar[type[RS232SerialProtocol]] = RS232SerialProtocol
 
     def __post_init__(self) -> None:
         """Initialize the transport"""
         if not self.serialdevice:
             raise ValueError("serialdevice must be given")
-        self._serialhandler = serial.threaded.ReaderThread(self.serialdevice, RS232SerialProtocol)
-        self._serialhandler.start()
-        self._serialhandler.protocol.handle_line = self.message_received
 
+        def protocol_factory() -> RS232SerialProtocol:
+            protocol = self._protocol_type()
+            # Adapt LineReader's `line` keyword to message_received's `message`.
+            protocol.handle_line = lambda line: self.message_received(line)  # noqa: PLW0108
+            return protocol
+
+        self._serialhandler = serial.threaded.ReaderThread(self.serialdevice, protocol_factory)
+        self._serialhandler.start()
+        self._serialhandler.connect()
+
+    @override
     async def send_command(self, command: str) -> None:
         """Wrapper for write_line on the protocol with some sanity checks"""
         if not self._serialhandler or not self._serialhandler.is_alive():
@@ -52,14 +64,14 @@ class RS232Transport(BaseTransport):
         async with self.lock:
             self._serialhandler.protocol.write_line(command)
 
+    @override
     async def get_response(self) -> str:
         """Serial devices send responses without needing to be told to, just reads it"""
         # TODO: we probably have a race-condition possibility here, maybe always put all received
         # messages to a stack and return popleft ??
         async with self.lock:
-            response: Optional[str] = None
+            response: str | None = None
 
-            # pylint: disable=R0801
             def set_response(message: str) -> None:
                 """Callback for setting the response"""
                 nonlocal response, self
@@ -72,6 +84,7 @@ class RS232Transport(BaseTransport):
             self.message_callback = None
             return cast(str, response)
 
+    @override
     async def abort_command(self) -> None:
         """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B):
         The status registers, the error queue, and all configuration states are left unchanged when a device
@@ -85,6 +98,7 @@ class RS232Transport(BaseTransport):
         async with self.lock:
             self._serialhandler.serial.send_break()
 
+    @override
     async def quit(self) -> None:
         """Closes the port and background threads"""
         if not self._serialhandler:
@@ -94,7 +108,7 @@ class RS232Transport(BaseTransport):
         self._serialhandler.close()
 
 
-def get(serial_url: str, **serial_kwargs: Dict[str, Any]) -> RS232Transport:
+def get(serial_url: str, **serial_kwargs: Any) -> RS232Transport:
     """Shorthand for creating the port from url and initializing the transport"""
     port = serial.serial_for_url(serial_url, **serial_kwargs)
     return RS232Transport(serialdevice=port)

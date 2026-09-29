@@ -1,0 +1,19 @@
+[tool.bumpversion]
+current_version = "2.5.1"
+commit = false
+tag = false
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/scpi/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "tests/test_scpi.py"
+search = '__version__ == "{current_version}"'
+replace = '__version__ == "{new_version}"'

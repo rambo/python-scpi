@@ -4,12 +4,11 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, cast, override
+from typing import Any, override
 
 import serial
-import serial.threaded
 
-from ..rs232 import RS232SerialProtocol, RS232Transport
+from ..rs232 import RS232Transport
 from .base import AddressTuple, GPIBTransport
 
 SCAN_DEVICE_TIMEOUT = 0.5
@@ -17,85 +16,45 @@ READ_TIMEOUT = 1.0
 LOGGER = logging.getLogger(__name__)
 
 
-class PrologixRS232SerialProtocol(RS232SerialProtocol):
-    """Basically the same deal as with the stock RS232 PySerial "protocol" but different EOL"""
-
-    TERMINATOR = b"\n"
-
-
 @dataclass
 class PrologixGPIBTransport(GPIBTransport, RS232Transport):
     """Transport "driver" for the Prologix USB-GPIB controller (v6 protocol)"""
 
-    _protocol_type = PrologixRS232SerialProtocol
+    _terminator = b"\n"
 
     @override
-    def __post_init__(self) -> None:
-        """Init the serial and controller"""
-        super().__post_init__()
-        self.initialize_controller()
+    async def _initialize(self) -> None:
+        await self._initialize_controller()
 
-    def initialize_controller(self) -> None:
-        """Initializes the controller to known state"""
-        if not self._serialhandler:
-            raise RuntimeError("Serialhandler isn't")
-        # Set to controller mode
-        self._serialhandler.protocol.write_line("++mode 1")
-        # Disable automatic read after write
-        self._serialhandler.protocol.write_line("++auto 0")
-        # Auto-assert End Of Instruction after commands
-        self._serialhandler.protocol.write_line("++eoi 1")
-        # Append CRLF to device commands (EOI above *should* be enough but this is probably more compatible)
-        self._serialhandler.protocol.write_line("++eos 0")
-        # We do not have parsing support for the EOT character so disable it
-        self._serialhandler.protocol.write_line("++eot_enable 0")
-        # Set inter-character timeout for read commands
-        self._serialhandler.protocol.write_line("++read_tmo_ms 500")
-        # Assert IFC, make us Controller In Charge
-        self._serialhandler.protocol.write_line("++ifc")
+    async def _initialize_controller(self) -> None:
+        # Controller mode, manual reads, EOI, CRLF, no EOT, timeout, then IFC.
+        for command in ("++mode 1", "++auto 0", "++eoi 1", "++eos 0", "++eot_enable 0", "++read_tmo_ms 500", "++ifc"):
+            await self._write_line(command)
 
-    @override
-    async def send_command(self, command: str) -> None:
-        """Wrapper for write_line on the protocol with some sanity checks"""
-        if not self._serialhandler or not self._serialhandler.is_alive():
-            raise RuntimeError("Serial handler not ready")
+    async def initialize_controller(self) -> None:
+        """Reset the controller; first use initializes it automatically."""
         async with self.lock:
-            self._serialhandler.protocol.write_line(command)
+            if self._writer is None:
+                await self._connect()
+            else:
+                await self._initialize_controller()
 
     @override
     async def get_response(self) -> str:
-        """Get device response"""
+        """Request a device response from the controller."""
         return await self.send_and_read("++read eoi")
 
     async def send_and_read(self, send: str) -> str:
-        """Send a line, read the response. NOTE: This is for talking with the controller, device responses
-        need to use get_response as usual"""
-        if not self._serialhandler:
-            raise RuntimeError("Serialhandler isn't")
-
-        async def _send_and_read(send: str) -> str:
-            """Wrap the actual work"""
-            nonlocal self
-            if not self._serialhandler:
-                raise RuntimeError("Serialhandler isn't")
-
+        """Keep a controller command and its response under one lock and timeout."""
+        async with asyncio.timeout(READ_TIMEOUT):
             async with self.lock:
-                response: str | None = None
-
-                def set_response(message: str) -> None:
-                    """Callback for setting the response"""
-                    nonlocal response, self
-                    response = message
-                    self.blevent.set()
-
-                self.blevent.clear()
-                self.message_callback = set_response
-                self._serialhandler.protocol.write_line(send)
-                await asyncio.get_event_loop().run_in_executor(None, self.blevent.wait)
-                self.message_callback = None
-                return cast(str, response)
-
-        return await asyncio.wait_for(_send_and_read(send), timeout=READ_TIMEOUT)
+                await self._connect()
+                self._receiving = True
+                try:
+                    await self._write_line(send)
+                    return await self._read_response()
+                finally:
+                    self._receiving = False
 
     @override
     async def set_address(self, primary: int, secondary: int | None = None) -> None:
@@ -169,14 +128,12 @@ class PrologixGPIBTransport(GPIBTransport, RS232Transport):
     async def scan_devices(self) -> Sequence[tuple[int, str]]:
         """Scan for devices in the bus.
         Returns list of addresses and identifiers for found primary addresses (0-30)"""
-        if not self._serialhandler:
-            raise RuntimeError("Serialhandler isn't")
         found_addresses: list[int] = []
         # We do not lock on this level since the commands we use need to manipulate the lock
         prev_addr = await self.query_address()
         prev_read_tmo_ms = int(await self.send_and_read("++read_tmo_ms"))
         new_read_tmo_ms = int((SCAN_DEVICE_TIMEOUT / 2) * 1000)
-        self._serialhandler.protocol.write_line(f"++read_tmo_ms {new_read_tmo_ms:d}")
+        await self.send_command(f"++read_tmo_ms {new_read_tmo_ms:d}")
         for addr in range(0, 31):  # 0-30 inclusive
 
             async def _scan_addr(addr: int) -> None:
@@ -190,7 +147,7 @@ class PrologixGPIBTransport(GPIBTransport, RS232Transport):
                 await asyncio.wait_for(_scan_addr(addr), timeout=SCAN_DEVICE_TIMEOUT)
             except (TimeoutError, asyncio.CancelledError):
                 pass
-        self._serialhandler.protocol.write_line(f"++read_tmo_ms {prev_read_tmo_ms:d}")
+        await self.send_command(f"++read_tmo_ms {prev_read_tmo_ms:d}")
         # Wait a moment for things to settle
         await asyncio.sleep(float(prev_read_tmo_ms) / 1000)
         # Get ids for the devices we found

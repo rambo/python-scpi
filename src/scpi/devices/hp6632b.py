@@ -1,8 +1,8 @@
 """HP/Agilent 3362B specific device implementation and helpers"""
 
-from typing import Any
-import logging
 import decimal
+import logging
+from typing import Any
 
 from ..scpi import SCPIDevice, SCPIProtocol
 from ..transports.rs232 import RS232Transport
@@ -78,7 +78,7 @@ class HP6632B(PowerSupply, MultiMeter, SCPIDevice):
         """Set the display mode, valied values are NORM and TEXT"""
         mode = mode.upper()
         if mode not in ("NORM", "TEXT"):
-            raise ValueError("Invalid mode %s, valid ones are NORM and TEXT" % mode)
+            raise ValueError(f"Invalid mode {mode}, valid ones are NORM and TEXT")
         return await self.command(f"DISP:MODE {mode}")
 
     async def set_display_text(self, text: str) -> None:

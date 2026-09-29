@@ -1,16 +1,15 @@
 """Helper class to allow using of device in traditional blocking style without having to deal with the ioloop"""
 
-from typing import Any
 import asyncio
 import functools
 import inspect
 import logging
-
+from typing import Any
 
 LOGGER = logging.getLogger(__name__)
 
 
-class AIOWrapper:  # pylint: disable=R0903
+class AIOWrapper:
     """Wraps all coroutine methods into asyncio run_until_complete calls"""
 
     def __init__(self, to_be_wrapped: Any, *, loop: asyncio.AbstractEventLoop | None = None) -> None:
@@ -26,7 +25,7 @@ class AIOWrapper:  # pylint: disable=R0903
                 try:
                     setattr(self.__class__, attr, getattr(self._device.__class__, attr))
                 except AttributeError:
-                    LOGGER.debug("Could not copy {}".format(attr))
+                    LOGGER.debug(f"Could not copy {attr}")
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -66,5 +65,5 @@ class AIOWrapper:  # pylint: disable=R0903
                 self._loop.close()
 
 
-class DeviceWrapper(AIOWrapper):  # pylint: disable=R0903
+class DeviceWrapper(AIOWrapper):
     """Legacy name for the AsyncIO wrapper class for backwards compatibility"""

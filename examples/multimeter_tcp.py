@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Example/test script for using the Generic multimeter via TCP"""
+
 import atexit
 import os
 import sys
 
-from scpi.transports import TCPTransport
 from scpi.devices.generic import MultiMeter
+from scpi.transports import TCPTransport
 from scpi.wrapper import AIOWrapper
-
-# pylint: disable=R0801
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

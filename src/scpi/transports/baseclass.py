@@ -3,18 +3,17 @@
 All transports must define certain basic methods (check all the raise NotImplementedError)
 """
 
-from typing import Optional, Callable
 import asyncio
 import logging
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-
 
 LOGGER = logging.getLogger(__name__)
 
 
-class AbstractTransport(ABC):  # pylint: disable=R0903
+class AbstractTransport(ABC):
     """So that for example GPIBDeviceTransport can be identified as transport without inheriting
     the low-level transport methods"""
 
@@ -23,8 +22,8 @@ class AbstractTransport(ABC):  # pylint: disable=R0903
 class BaseTransport(AbstractTransport, ABC):
     """Baseclass for SCPI tranport layers, abstracts away details, must be subclasses to implement"""
 
-    message_callback: Optional[Callable[[str], None]] = field(default=None)
-    unsolicited_message_callback: Optional[Callable[[str], None]] = field(default=None)
+    message_callback: Callable[[str], None] | None = field(default=None)
+    unsolicited_message_callback: Callable[[str], None] | None = field(default=None)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     aioevent: asyncio.Event = field(default_factory=asyncio.Event)
     blevent: threading.Event = field(default_factory=threading.Event)

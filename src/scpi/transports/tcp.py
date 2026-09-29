@@ -1,13 +1,11 @@
 """TCP based transport"""
 
-from typing import Optional
 import asyncio
-from dataclasses import dataclass, field
 import logging
-
+from dataclasses import dataclass, field
+from typing import override
 
 from .baseclass import BaseTransport
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,10 +14,10 @@ LOGGER = logging.getLogger(__name__)
 class TCPTransport(BaseTransport):
     """TCP based transport"""
 
-    ipaddr: Optional[str] = field(default=None)
-    port: Optional[int] = field(default=None)
-    reader: Optional[asyncio.StreamReader] = field(default=None)
-    writer: Optional[asyncio.StreamWriter] = field(default=None)
+    ipaddr: str | None = field(default=None)
+    port: int | None = field(default=None)
+    reader: asyncio.StreamReader | None = field(default=None)
+    writer: asyncio.StreamWriter | None = field(default=None)
 
     async def open_connection(self, ipaddr: str, port: int) -> None:
         """Open a connection (also update the IP/port)"""
@@ -32,6 +30,7 @@ class TCPTransport(BaseTransport):
         if self.ipaddr is None or self.port is None:
             raise ValueError("ipaddr and port must be given")
 
+    @override
     async def send_command(self, command: str) -> None:
         """Write command to the stream"""
         if not self.writer:
@@ -41,11 +40,12 @@ class TCPTransport(BaseTransport):
         if not self.writer:
             raise RuntimeError("Writer not set")
         async with self.lock:
-            LOGGER.debug("sending command: {}".format(command))
+            LOGGER.debug(f"sending command: {command}")
             self.writer.write((command + "\r\n").encode())
             await asyncio.sleep(0.05)
             await self.writer.drain()
 
+    @override
     async def get_response(self) -> str:
         """Get response from the stream"""
         if not self.reader:
@@ -57,9 +57,10 @@ class TCPTransport(BaseTransport):
         async with self.lock:
             data = await self.reader.readline()
             res = data.decode()
-            LOGGER.debug("Got response: {}".format(res.strip()))
+            LOGGER.debug(f"Got response: {res.strip()}")
             return res
 
+    @override
     async def quit(self) -> None:
         """Closes the connection and background threads"""
         if not self.writer:
@@ -67,6 +68,7 @@ class TCPTransport(BaseTransport):
         self.writer.close()
         await self.writer.wait_closed()
 
+    @override
     async def abort_command(self) -> None:
         """This does not apply on TCP transport"""
         LOGGER.debug("TCP transport does not know what to do here")

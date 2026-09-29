@@ -31,6 +31,7 @@ class Device:
 @pytest.mark.parametrize("wrapper_type", [AIOWrapper, DeviceWrapper])
 def test_wrapper_owns_loop(wrapper_type: type[AIOWrapper]) -> None:
     """Repeated calls and shutdown use one loop, including after asyncio.run()."""
+
     async def noop() -> None:
         pass
 

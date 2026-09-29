@@ -16,6 +16,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv run --locked prek run --all-files
+        env:
+          SKIP: no-commit-to-branch
       - run: uv run --locked pytest
       - run: uv run --locked bandit -r src --skip B101
       - run: uv build

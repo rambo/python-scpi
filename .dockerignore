@@ -51,3 +51,9 @@ Dockerfile
 **/.mypy_cache/
 **/.dmypy.json
 **/dmypy.json
+
+HANDOFF.md
+Dockerfile_alpine
+.ruff_cache
+.pyrefly_cache
+pytest*.xml

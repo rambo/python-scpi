@@ -133,3 +133,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Modern tooling caches
+.ruff_cache/
+.pyrefly_cache/

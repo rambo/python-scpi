@@ -1,6 +1,6 @@
 [project]
 name = "scpi"
-version = "2.5.1"
+version = "2.6.0"
 description = "Transport-independent SCPI command sender/parser and device base classes"
 authors = [{name = "Eero af Heurlin", email = "eero.afheurlin@iki.fi"}]
 license = "LGPL-2.1-or-later"

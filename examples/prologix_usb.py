@@ -39,5 +39,5 @@ if __name__ == "__main__":
             if model == "34401A":
                 aiodev = MultiMeter(dtransport)
         # And get the mapper that handles asyncio transparently
-        devdict[addr] = AIOWrapper(aiodev)
+        devdict[addr] = AIOWrapper(aiodev, loop=gpib.loop)
         print("Added {:s} as devdict[{:d}]".format(idstr, addr))

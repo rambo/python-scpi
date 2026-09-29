@@ -13,10 +13,12 @@ LOGGER = logging.getLogger(__name__)
 class AIOWrapper:  # pylint: disable=R0903
     """Wraps all coroutine methods into asyncio run_until_complete calls"""
 
-    def __init__(self, to_be_wrapped: Any) -> None:
+    def __init__(self, to_be_wrapped: Any, *, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Init wrapper for device"""
         self._device = to_be_wrapped
-        self._loop = asyncio.get_event_loop()
+        self._loop = loop if loop is not None else asyncio.new_event_loop()
+        self._owns_loop = loop is None
+        self._closed = False
         for attr in functools.WRAPPER_ASSIGNMENTS:
             try:
                 setattr(self, attr, getattr(self._device, attr))
@@ -25,6 +27,11 @@ class AIOWrapper:  # pylint: disable=R0903
                     setattr(self.__class__, attr, getattr(self._device.__class__, attr))
                 except AttributeError:
                     LOGGER.debug("Could not copy {}".format(attr))
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        """The loop to share with wrappers using the same transport."""
+        return self._loop
 
     def __getattr__(self, item: str) -> Any:
         """Get a memeber, if it's a coroutine autowrap it to eventloop run"""
@@ -35,6 +42,8 @@ class AIOWrapper:  # pylint: disable=R0903
             def wrapped(*args: Any, **kwargs: Any) -> Any:
                 """Gets the waitable and tells the event loop to run it"""
                 nonlocal self
+                if self._closed:
+                    raise RuntimeError("Wrapper is closed")
                 waitable = orig(*args, **kwargs)
                 return self._loop.run_until_complete(waitable)
 
@@ -47,8 +56,14 @@ class AIOWrapper:  # pylint: disable=R0903
 
     def quit(self) -> None:
         """Calls the device.quit via loop and closes the loop"""
-        self._loop.run_until_complete(self._device.quit())
-        self._loop.close()
+        if self._closed:
+            return
+        try:
+            self._loop.run_until_complete(self._device.quit())
+        finally:
+            self._closed = True
+            if self._owns_loop:
+                self._loop.close()
 
 
 class DeviceWrapper(AIOWrapper):  # pylint: disable=R0903

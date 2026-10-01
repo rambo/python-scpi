@@ -5,6 +5,15 @@ on:
 permissions:
   contents: read
 jobs:
+
+  bumpversion-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Validate .bumpversion.toml
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pvarki/config-ci-library/.github/actions/validate-bumpversion@main
+
   python:
     runs-on: ubuntu-latest
     strategy:
@@ -23,6 +32,7 @@ jobs:
       - run: uv run --locked pytest
       - run: uv run --locked bandit -r src --skip B101
       - run: uv build
+
   containers:
     runs-on: ubuntu-latest
     strategy:

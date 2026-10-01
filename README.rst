@@ -87,11 +87,13 @@ those files and ``uv.lock`` together. It does not automatically commit, tag,
 publish or push. Builds retain ``LICENSE`` and ``py.typed`` and exclude the
 local, untracked ``HANDOFF.md`` from source distributions.
 
-After a merge or direct push to ``main``, successful Python and container checks
-automatically create a Git tag matching ``project.version`` (for example,
-``2.6.0``). Existing tags are left unchanged, so bump the version before merging
-a new release. The tagging job uses ``GITHUB_TOKEN`` with ``contents: write``;
-it does not publish packages or create GitHub releases.
+Pull requests run Python and container checks without release permissions.
+After a merge or direct push to ``master``, a separate workflow runs the same
+checks, then creates a Git tag and GitHub release matching ``project.version``
+(for example, ``2.6.0``), with generated release notes. Existing tags and releases
+are left unchanged, so bump the version before merging a new release. A missing
+release is created even if its tag already exists. The release job uses
+``GITHUB_TOKEN`` with ``contents: write``; it does not publish packages.
 
 Containers
 ----------

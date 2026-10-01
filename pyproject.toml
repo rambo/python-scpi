@@ -17,7 +17,7 @@ Repository = "https://github.com/rambo/python-scpi/"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3,<9.0",
+    "pytest>=9.0.3,<10.0",
     "coverage>=7.8,<8.0",
     "pytest-cov>=6.1,<7.0",
     "ruff>=0.12,<1.0",

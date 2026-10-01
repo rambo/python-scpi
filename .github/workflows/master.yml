@@ -1,0 +1,46 @@
+name: Master checks and release
+on:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/check.yml
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: version-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tag package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          git check-ref-format "refs/tags/$version"
+          existing=$(git ls-remote --tags origin "refs/tags/$version")
+          if [ -n "$existing" ]; then
+            echo "Tag $version already exists; leaving it unchanged."
+            exit 0
+          fi
+          git push origin "HEAD:refs/tags/$version"
+      - name: Create GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if gh release view "$version" > /dev/null 2>&1; then
+            echo "Release $version already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create "$version" --verify-tag --generate-notes --title "$version"

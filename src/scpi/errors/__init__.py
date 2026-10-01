@@ -1,6 +1,6 @@
 """SCPI module specific errors"""
 
-from typing import Any
+from typing import override
 
 
 class CommandError(RuntimeError):
@@ -13,6 +13,7 @@ class CommandError(RuntimeError):
         self.message = message
         super().__init__()
 
+    @override
     def __str__(self) -> str:
         """format as string"""
         return f"'{self.command}' returned error {self.code:d}: {self.message}"

@@ -2,7 +2,7 @@
 FROM ghcr.io/astral-sh/uv:0.12.12 AS uv
 
 # Run the full supported Python matrix in an isolated tooling environment.
-FROM advian/tox-base:debian-trixie AS tox
+FROM advian/tox-base:alpine-3.24 AS tox
 ARG PYTHON_VERSIONS="3.14 3.13 3.12"
 ENV PYENV_ROOT=/root/.pyenv
 ENV PATH="/opt/tox/bin:/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
@@ -18,14 +18,14 @@ WORKDIR /app
 COPY . /app
 ENTRYPOINT ["/app/docker/entrypoint-tox.sh"]
 
-FROM python:3.14-trixie AS builder_base
+FROM python:3.14-alpine3.24 AS builder_base
 ENV LC_ALL=C.UTF-8 PYTHONFAULTHANDLER=1 PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 COPY --from=uv /uv /uvx /usr/local/bin/
 ARG UV_FIND_LINKS=
 ARG UV_INSECURE_HOST=host.docker.internal
-RUN apt-get update && apt-get install -y --no-install-recommends bash git tini && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache bash git tini
 WORKDIR /app
 COPY uv.lock pyproject.toml README.rst /app/
 RUN uv sync --locked --no-install-project
@@ -35,22 +35,22 @@ COPY src /app/src
 COPY LICENSE /app/LICENSE
 RUN uv sync --locked --no-dev --no-editable
 
-FROM python:3.14-slim-trixie AS production
+FROM python:3.14-alpine3.24 AS production
 ENV PATH="/opt/venv/bin:$PATH" PYTHONUNBUFFERED=1
-RUN apt-get update && apt-get install -y --no-install-recommends bash tini && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache bash tini
 COPY --from=production_build /opt/venv /opt/venv
 COPY docker/entrypoint.sh /docker-entrypoint.sh
 WORKDIR /app
-ENTRYPOINT ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
 
 FROM builder_base AS devel_build
 COPY . /app
 RUN uv sync --locked
 
 FROM devel_build AS test
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker/entrypoint-test.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/docker/entrypoint-test.sh"]
 
 FROM devel_build AS devel_shell
-RUN apt-get update && apt-get install -y zsh && rm -rf /var/lib/apt/lists/* \
+RUN apk add --no-cache zsh \
     && echo '. /opt/venv/bin/activate' >> /root/.zshrc
 ENTRYPOINT ["/bin/zsh"]

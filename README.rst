@@ -2,40 +2,133 @@
 scpi
 ====
 
-New asyncio_ version. Only for Python 3.6 and above
+Transport-independent, asyncio-based SCPI commands and device helpers for
+Python 3.12, 3.13 and 3.14. Serial transport uses pyserial-asyncio; VISA is not required.
 
-Since all the other wrappers either require VISA binary or are not generic (and do not implement the device I need)
+Usage
+-----
 
-Basic idea here is to make transport-independent command sender/parser and a device baseclass that implements the common SCPI commands
+Install with ``pip install scpi`` or add the package with ``uv add scpi``.
 
-A device specific implementation can then add the device-specific commands.
+* Instantiate a transport. GPIB devices use ``GPIBDeviceTransport``.
+* Instantiate ``SCPIDevice`` with the transport, or with an explicit
+  ``SCPIProtocol`` when you need to share a protocol.
+* Await the device methods from your application's event loop.
 
-Pro tip for thos wishing to work on the code https://python-poetry.org/
+For blocking scripts and interactive use, wrap a device with ``AIOWrapper``.
+Each wrapper creates its own loop and closes it on ``quit()``. When wrappers
+share a transport, pass ``loop=controller.loop`` to the device wrappers; only
+that controller owns the loop. Quit device wrappers before their controller.
+Calling ``quit()`` repeatedly is safe. Use the asynchronous API inside an
+already running event loop.
 
-.. _asyncio: https://docs.python.org/3/library/asyncio.html
+For example, connect to an HP 6632B power supply::
 
+    uv run --locked python examples/hp6632b_serial.py /dev/ttyUSB0
 
-## Usage
+The example leaves an interactive ``dev`` object and registers shutdown with
+``atexit``. See ``examples/`` for TCP and Prologix GPIB examples. Physical
+instrument access and serial-port permissions are required for those examples.
 
-Install the package to your virtualenv with poetry or from pip
+Serial I/O
+----------
 
-  - Instatiate a transport (for GPIB you will need `GPIBDeviceTransport` to be able to use the device helper class)
-  - Instatiate `SCPIProtocol` with the transport (optional, see below)
-  - Instantiate `SCPIDevice` with the protocol (or as a shorthand: with the transport directly)
-  - Use the asyncio eventloop to run the device methods (all of which are coroutines)
+Serial factories and ``RS232Transport(serialdevice=port)`` remain synchronous.
+They open or accept a pyserial port, then attach pyserial-asyncio to the running
+event loop on the first command or read. Use one event loop per transport and
+always await ``quit()`` (or call the blocking wrapper's ``quit()``).
 
-Or if you're just playing around in the REPL use `AIOWrapper` to hide the eventloop handling
-for traditional non-concurrent approach.
+Ordinary serial commands and replies use ASCII and CRLF; Prologix uses LF.
+Replies are buffered, including replies received before ``get_response()``.
+Response waits are cancellable; a disconnect fails pending reads. Explicit
+message callbacks remain supported, and unsolicited callbacks receive lines
+when no response read is pending. Serial BREAK uses an asynchronous delay.
 
-See the examples directory for more.
+Prologix initialization runs automatically on first use. To reset the controller
+explicitly, use ``await transport.initialize_controller()``; this method is now
+asynchronous. Serial read/write timeouts become zero for nonblocking I/O;
+SCPI command timeouts and asynchronous write flow control bound waits instead.
+
+On POSIX, pyserial-asyncio requires a serial file descriptor. In-memory
+``loop://`` ports do not provide one; the tests use pseudo-terminals instead.
+See the `pyserial-asyncio documentation <https://pyserial-asyncio.readthedocs.io/en/latest/shortintro.html>`_.
+
+Development
+-----------
+
+The project uses uv, Hatchling, Ruff, strict Pyrefly and prek::
+
+    uv sync --locked
+    uv run --locked prek install
+    uv run --locked prek run --all-files
+    uv run --locked pytest
+    uv run --locked pyrefly check
+    uv run --locked bandit -r src --skip B101
+
+Run the supported Python matrix with ``uv run --locked tox``. Tox needs Python
+3.12, 3.13 and 3.14 available; ``uv python install 3.12 3.13 3.14`` can install
+them. Tests use fake devices and POSIX pseudo-terminals and need no hardware.
+Serial integration tests are skipped on Windows.
+The Bandit B101 exclusion permits existing internal assertions.
+
+Release preparation
+-------------------
+
+From a clean working tree::
+
+    uv run --locked bump-my-version bump patch
+    uv lock
+    uv run --locked prek run --all-files
+    uv run --locked pytest
+    uv build
+
+The bump updates package metadata, the package version and its test. Commit
+those files and ``uv.lock`` together. It does not automatically commit, tag,
+publish or push. Builds retain ``LICENSE`` and ``py.typed`` and exclude the
+local, untracked ``HANDOFF.md`` from source distributions.
+
+After a merge or direct push to ``main``, successful Python and container checks
+automatically create a Git tag matching ``project.version`` (for example,
+``2.6.0``). Existing tags are left unchanged, so bump the version before merging
+a new release. The tagging job uses ``GITHUB_TOKEN`` with ``contents: write``;
+it does not publish packages or create GitHub releases.
+
+Containers
+----------
+
+``Dockerfile`` uses Debian Trixie; ``Dockerfile_alpine`` uses Alpine 3.24.
+Both use Python 3.14 and expose ``test``, ``tox``, ``devel_shell`` and
+``production`` targets. Tox checks Python 3.12 through 3.14. Production installs
+only runtime dependencies, non-editably, and prints the package version by
+default. Pass a command to run your own script.
+
+Build and run all targets locally::
+
+    ./run_tests.sh
+    CONTAINER_ENGINE=podman ./run_tests.sh
+
+Filter a run or use an optional wheelhouse::
+
+    CONTAINER_ENGINE=podman VARIANTS=alpine TARGETS=tox ./run_tests.sh
+    WHEELHOUSE_URL=http://host.docker.internal:3141/debian/ VARIANTS=debian ./run_tests.sh
+
+Sources are copied into images; no host virtualenv, SSH agent or source bind
+mount is required. The wheelhouse is optional. To build a production image::
+
+    docker build --target production -t scpi:local .
+    docker run --rm scpi:local
+
+Use ``podman`` in place of ``docker`` if preferred. Access to physical serial
+instruments must be configured separately for your container engine.
+
+CI
+--
+
+GitHub Actions runs checks on Python 3.12, 3.13 and 3.14, and builds/runs all
+four container targets on both distributions. Container jobs use Docker.
 
 TODO
 ----
 
-Check Carrier-Detect for RS232 transport
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-in the RS232 transport check getCD to make sure the device is present before doing anything.
-CTS can also be checked even if hw flow control is not in use.
-
-Basically wait for it for X seconds and abort if not found
+Consider configurable carrier-detect and CTS checks for RS232 devices that
+support those signals.

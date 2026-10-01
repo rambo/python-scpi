@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Example/test script for using the HP 6632B power supply via serial interface"""
+
 import atexit
 import os
 import sys
 
 from scpi.devices import hp6632b
 from scpi.wrapper import AIOWrapper
-
-# pylint: disable=R0801
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

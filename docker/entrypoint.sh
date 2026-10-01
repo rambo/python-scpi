@@ -1,8 +1,6 @@
-#!/bin/bash -l
-set -e
+#!/bin/sh
+set -eu
 if [ "$#" -eq 0 ]; then
-  # TODO: Put your actual program start here
-  exec true
-else
-  exec "$@"
+    exec python -c 'import scpi; print(scpi.__version__)'
 fi
+exec "$@"

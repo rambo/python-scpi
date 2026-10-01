@@ -1,15 +1,15 @@
 """Generic SCPI commands, allow sending and reading of raw data, helpers to parse information"""
 
-from typing import Any, Tuple, Sequence, Union, Optional, cast
 import asyncio
-import re
 import logging
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any, Union, cast
 
 from .errors import CommandError
 from .transports.baseclass import AbstractTransport, BaseTransport
 from .transports.gpib import GPIBDeviceTransport, GPIBTransport
-
 
 COMMAND_DEFAULT_TIMEOUT = 1.0
 ERROR_RE = re.compile(r'([+-]?\d+),"(.*?)"')
@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 # FIXME rename to mixin and use as such
-class BitEnum:  # pylint: disable=R0903
+class BitEnum:
     """Baseclass for bit definitions of various status registers"""
 
     @classmethod
@@ -142,7 +142,7 @@ class STBBit(BitEnum):
 class SCPIProtocol:
     """Implements the SCPI protocol talks over the given transport"""
 
-    transport: Union[BaseTransport, GPIBDeviceTransport, GPIBTransport] = field()
+    transport: BaseTransport | GPIBDeviceTransport | GPIBTransport = field()
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _checking_error: bool = field(default=False)
 
@@ -154,7 +154,7 @@ class SCPIProtocol:
         """Shortcut to the transports abort_command call"""
         await self.transport.abort_command()
 
-    async def get_error(self) -> Tuple[int, str]:
+    async def get_error(self) -> tuple[int, str]:
         """Asks for the error code and string"""
         if self._checking_error:
             raise RuntimeError("Recursion on get_error detected")
@@ -164,7 +164,7 @@ class SCPIProtocol:
             match = ERROR_RE.search(response)
             if not match:
                 # PONDER: Make our own exceptions ??
-                raise ValueError("Response '{:s}' does not have correct error format".format(response))
+                raise ValueError(f"Response '{response:s}' does not have correct error format")
             code = int(match.group(1))
             errstr = match.group(2)
             return (code, errstr)
@@ -195,7 +195,7 @@ class SCPIProtocol:
                     await self.transport.send_command(command)
 
             await asyncio.wait_for(_command(command), timeout=cmd_timeout)
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             # check for the actual error if available
             if auto_check_error:
                 await self.check_error(command)
@@ -231,7 +231,7 @@ class SCPIProtocol:
                     return await self.transport.get_response()
 
             return await asyncio.wait_for(_ask(command), timeout=cmd_timeout)
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             # check for the actual error if available
             if auto_check_error:
                 await self.check_error(command)
@@ -253,7 +253,7 @@ class SCPIProtocol:
 
 
 @dataclass
-class SCPIDevice:  # pylint: disable=R0904
+class SCPIDevice:
     """Implements nicer wrapper methods for the raw commands from the generic SCPI command set
 
     See also devices.mixins for mixin classes with more features"""
@@ -266,7 +266,7 @@ class SCPIDevice:  # pylint: disable=R0904
 
     def __post_init__(self) -> None:
         """Set protocol and transport based on what we're instancing from"""
-        protocol: Optional[SCPIProtocol] = None
+        protocol: SCPIProtocol | None = None
         if isinstance(self.instancefrom, SCPIProtocol):
             protocol = self.instancefrom
         if isinstance(self.instancefrom, (BaseTransport, GPIBDeviceTransport, GPIBTransport)):
@@ -280,7 +280,7 @@ class SCPIDevice:  # pylint: disable=R0904
         # Check if transport poll method exists
         # TODO: the transport class should have a marker property for this we should use
         try:
-            _ = self.transport.poll  # type: ignore
+            _ = getattr(self.transport, "poll")
             self._can_poll = True
         except AttributeError:
             pass
@@ -309,7 +309,7 @@ class SCPIDevice:  # pylint: disable=R0904
         """Tells the protocol layer to issue "Device clear" to abort the command currently hanging"""
         await self.protocol.abort_command()
 
-    async def get_error(self) -> Tuple[int, str]:
+    async def get_error(self) -> tuple[int, str]:
         """Shorthand for procotols method of the same name"""
         return await self.protocol.get_error()
 
@@ -368,7 +368,7 @@ class SCPIDevice:  # pylint: disable=R0904
 
         If transport implements "serial poll", will use that instead of SCPI query to get the value"""
         if self._can_poll:
-            resp = await self.transport.poll()  # type: ignore
+            resp = await getattr(self.transport, "poll")()
         else:
             resp = await self.ask("*STB?")
         return int(resp)

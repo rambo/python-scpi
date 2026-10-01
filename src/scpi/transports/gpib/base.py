@@ -1,16 +1,17 @@
 """GPIB Related baseclasses"""
 
 from __future__ import annotations
-from typing import Optional, Tuple, Sequence, Union
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+
 import logging
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 from ..baseclass import AbstractTransport, BaseTransport
 
 LOGGER = logging.getLogger(__name__)
 
-AddressTuple = Tuple[int, Optional[int]]
+AddressTuple = tuple[int, int | None]
 
 
 @dataclass
@@ -18,7 +19,7 @@ class GPIBDeviceTransport(AbstractTransport):
     """Device specific transport, handles addressing transparently"""
 
     lltransport: GPIBTransport = field()
-    address: Union[AddressTuple, int] = field()
+    address: AddressTuple | int = field()
 
     def __post_init__(self) -> None:
         """Make sure address is always tuple"""
@@ -69,7 +70,7 @@ class GPIBTransport(BaseTransport, ABC):
     """Baseclass for GPIB transports"""
 
     @abstractmethod
-    async def set_address(self, primary: int, secondary: Optional[int] = None) -> None:
+    async def set_address(self, primary: int, secondary: int | None = None) -> None:
         """Set the address we want to talk to"""
         raise NotImplementedError()
 
@@ -80,7 +81,7 @@ class GPIBTransport(BaseTransport, ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def scan_devices(self) -> Sequence[Tuple[int, str]]:
+    async def scan_devices(self) -> Sequence[tuple[int, str]]:
         """Scan for devices in the bus.
         Returns list of addresses and identifiers for found primary addresses (0-30)"""
         raise NotImplementedError()
@@ -120,6 +121,6 @@ class GPIBTransport(BaseTransport, ABC):
         """Do serial poll on the selected device"""
         raise NotImplementedError()
 
-    def get_device_transport(self, address: int, secondary: Optional[int] = None) -> GPIBDeviceTransport:
+    def get_device_transport(self, address: int, secondary: int | None = None) -> GPIBDeviceTransport:
         """Gets a device-specific transport instance for given address"""
         return GPIBDeviceTransport(self, (address, secondary))

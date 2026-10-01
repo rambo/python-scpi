@@ -1,65 +1,66 @@
-[tool.poetry]
+[project]
 name = "scpi"
-version = "2.5.1"
-description = "Basic idea here is to make transport-independent command sender/parser and a device baseclass that implements the common SCPI commands"
-authors = ["Eero af Heurlin <eero.afheurlin@iki.fi>"]
-homepage = "https://github.com/rambo/python-scpi/"
-repository = "https://github.com/rambo/python-scpi/"
-license = "LGPL"
+version = "2.6.0"
+description = "Transport-independent SCPI command sender/parser and device base classes"
+authors = [{name = "Eero af Heurlin", email = "eero.afheurlin@iki.fi"}]
+license = "LGPL-2.1-or-later"
 readme = "README.rst"
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "pyserial>=3.4,<4.0",
+    "pyserial-asyncio>=0.6,<0.7",
+]
 
-[tool.black]
+[project.urls]
+Homepage = "https://github.com/rambo/python-scpi/"
+Repository = "https://github.com/rambo/python-scpi/"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9.0",
+    "coverage>=7.8,<8.0",
+    "pytest-cov>=6.1,<7.0",
+    "ruff>=0.12,<1.0",
+    "bandit>=1.8,<2.0",
+    "pyrefly>=1.3,<2.0",
+    "prek>=0.2,<1.0",
+    "pytest-asyncio>=0.21,<1.0",
+    "bump-my-version>=1.0,<2.0",
+    "detect-secrets>=1.5,<2.0",
+    "types-pyserial>=3.5,<4.0",
+    "tox>=4,<5",
+]
+
+[tool.ruff]
 line-length = 120
-target-version = ['py37']
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-  |  __pycache__
-)
-'''
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "PL"]
+ignore = ["PLR2004"]
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["src", "tests", "examples"]
+search-path = ["src", "."]
+python-version = "3.12"
 
 [tool.pytest.ini_options]
-junit_family="xunit2"
-addopts="--cov=scpi --cov-branch"
-
-[tool.pylint.format]
-max-line-length = 120
-
-[tool.pylint.messages_control]
-disable=["fixme", "W1202", "C0209"]
+junit_family = "xunit2"
+addopts = "--cov=scpi --cov-branch"
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 omit = ["tests/*"]
 branch = true
 
-[tool.poetry.dependencies]
-python = "^3.9"
-pyserial = "^3.4"
-
-[tool.poetry.dev-dependencies]
-pytest = "^8.0"
-coverage = "^7.4"
-pytest-cov = "^4.1"
-pylint = "^3.0"
-black = "^24.1"
-bandit = "^1.7"
-mypy = "^1.8"
-pre-commit = "^3.6"
-pytest-asyncio = ">=0.21,<1.0" # caret behaviour on 0.x is to lock to 0.x.*
-bump2version = "^1.0"
-detect-secrets = "^1.4"
-
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.27,<2.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scpi"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/HANDOFF.md"]

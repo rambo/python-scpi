@@ -1,0 +1,62 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.12'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run --locked prek run --all-files
+        env:
+          SKIP: no-commit-to-branch
+      - run: uv run --locked pytest
+      - run: uv run --locked bandit -r src --skip B101
+      - run: uv build
+  containers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [debian, alpine]
+        target: [test, tox, devel_shell, production]
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./run_tests.sh
+        env:
+          VARIANTS: ${{ matrix.variant }}
+          TARGETS: ${{ matrix.target }}
+  tag:
+    needs: [python, containers]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: version-tag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tag package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          git check-ref-format "refs/tags/$version"
+          existing=$(git ls-remote --tags origin "refs/tags/$version")
+          if [ -n "$existing" ]; then
+            echo "Tag $version already exists; leaving it unchanged."
+            exit 0
+          fi
+          git push origin "HEAD:refs/tags/$version"

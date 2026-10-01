@@ -1,25 +1,25 @@
 """TDK Lambda power supplies"""
 
-# pylint: disable=C0103
-from typing import Optional, Union, Any
-from dataclasses import dataclass, field
 import decimal
 import logging
+from dataclasses import dataclass, field
+from typing import Any, override
 
-import serial as pyserial  # type: ignore
+import serial as pyserial
 
 from ..scpi import SCPIDevice, SCPIProtocol
 from ..transports.rs232 import RS232Transport
 from ..transports.tcp import get as get_tcp
 from .generic import PowerSupply
 
-StrIntCombo = Union[str, int]
+StrIntCombo = str | int
 LOGGER = logging.getLogger(__name__)
 
 
 class TDKSCPI(SCPIDevice):
     """Baseclass for TDK SCPI devices"""
 
+    @override
     async def set_power_on_status_clear(self, setting: StrIntCombo) -> None:
         """
         Set the Power-On Status Clear setting.
@@ -36,6 +36,7 @@ class TDKSCPI(SCPIDevice):
             raise ValueError
         await super().set_power_on_status_clear(setting)
 
+    @override
     async def restore_state(self, state: int) -> None:
         """
         Restores the power supply to a state previously stored in memory by *SAV command.
@@ -46,6 +47,7 @@ class TDKSCPI(SCPIDevice):
 
         await super().restore_state(state)
 
+    @override
     async def save_state(self, state: int) -> None:
         """
         The SAV command saves all applied configuration settings.
@@ -56,6 +58,7 @@ class TDKSCPI(SCPIDevice):
 
         await super().save_state(state)
 
+    @override
     async def power_on_state(self, setting: StrIntCombo) -> None:
         """
         Set the power-on behavior of the system
@@ -125,7 +128,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         _id = int(select_id)
 
         if _id < 1 or _id > 31:
-            raise ValueError("id %d is outside of the valid id range" % _id)
+            raise ValueError(f"id {_id:d} is outside of the valid id range")
 
         await self.command(f"INSTrument:NSELect {_id:d}")
 
@@ -145,9 +148,9 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         couple = couple.upper()
 
         if couple in ("NONE", "ALL"):
-            await self.command("INSTrument:COUPle %s" % couple)
+            await self.command(f"INSTrument:COUPle {couple}")
         else:
-            raise ValueError("Argument '%s' not valid for INST:COUP" % couple)
+            raise ValueError(f"Argument '{couple}' not valid for INST:COUP")
 
     async def set_voltage_protection(self, volts: Any) -> None:
         """
@@ -158,7 +161,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
         # FIXME: shouldn't we pass _volts here ?? Also what are valid types/values ??
         await self.command("VOLTage:PROTection:LEVel")
 
-    async def query_voltage_protection(self, mode: Optional[str] = None) -> decimal.Decimal:
+    async def query_voltage_protection(self, mode: str | None = None) -> decimal.Decimal:
         """
         Query the voltage protection level.  Depending on mode, returns the current level, the
         minimum level, or the maximum level.
@@ -220,6 +223,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
 
         await self.command("GLOBal:*RST")
 
+    @override
     async def set_voltage(self, millivolts: float, extra_params: str = "") -> None:
         """
         Sets the desired output voltage (but does not auto-enable outputs) in
@@ -233,6 +237,7 @@ class TDKLambdaZplus(PowerSupply, TDKSCPI):
 
         await super().set_voltage(millivolts, extra_params=extra_params)
 
+    @override
     async def set_current(self, milliamps: float, extra_params: str = "") -> None:
         """
         Sets the desired output current (but does not auto-enable outputs) in

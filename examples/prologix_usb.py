@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Example/test script for use the with Prologix USB GPIB interface"""
+
 import atexit
 import os
 import sys
 
 from scpi import SCPIDevice
+from scpi.devices.generic import MultiMeter
+from scpi.devices.hp6632b import HP6632B
 from scpi.transports.gpib import prologix
 from scpi.wrapper import AIOWrapper
-from scpi.devices.hp6632b import HP6632B
-from scpi.devices.generic import MultiMeter
-
-# pylint: disable=R0801
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -39,5 +38,5 @@ if __name__ == "__main__":
             if model == "34401A":
                 aiodev = MultiMeter(dtransport)
         # And get the mapper that handles asyncio transparently
-        devdict[addr] = AIOWrapper(aiodev)
-        print("Added {:s} as devdict[{:d}]".format(idstr, addr))
+        devdict[addr] = AIOWrapper(aiodev, loop=gpib.loop)
+        print(f"Added {idstr:s} as devdict[{addr:d}]")

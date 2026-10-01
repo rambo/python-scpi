@@ -1,100 +1,136 @@
-"""Serial port transport layer"""
+"""Serial transport backed by pyserial-asyncio."""
 
 from __future__ import annotations
-from typing import Optional, Any, Dict, cast
-import asyncio
-import logging
-from dataclasses import field, dataclass
 
-import serial  # type: ignore
-import serial.threaded  # type: ignore
+import asyncio
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, override
+
+import serial
+import serial_asyncio
 
 from .baseclass import BaseTransport
 
-LOGGER = logging.getLogger(__name__)
 WRITE_TIMEOUT = 1.0
-
-
-class RS232SerialProtocol(serial.threaded.LineReader):  # type: ignore
-    """PySerial "protocol" class for handling stuff"""
-
-    ENCODING = "ascii"
-
-    def connection_made(self, transport: RS232Transport) -> None:
-        """Overridden to make sure we have write_timeout set"""
-        super().connection_made(transport)
-        # Make sure we have a write timeout of expected size
-        self.transport.write_timeout = WRITE_TIMEOUT
-
-    def handle_line(self, line: str) -> None:
-        raise RuntimeError("This should have been overloaded by RS232Transport")
 
 
 @dataclass
 class RS232Transport(BaseTransport):
-    """Uses PySerials ReaderThread in the background to save us some pain"""
+    """Attach an existing serial port to the running loop on first use."""
 
-    serialdevice: Optional[serial.SerialBase] = field(default=None)
-    _serialhandler: Optional[serial.threaded.ReaderThread] = field(default=None, repr=False)
+    serialdevice: serial.Serial | None = field(default=None)
+    _terminator: ClassVar[bytes] = b"\r\n"
+    _writer: asyncio.StreamWriter | None = field(default=None, init=False, repr=False)
+    _read_task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
+    # ponytail: unbounded replies; add backpressure for continuously streaming devices.
+    _responses: asyncio.Queue[str | Exception] = field(default_factory=asyncio.Queue, init=False, repr=False)
+    _read_error: Exception | None = field(default=None, init=False, repr=False)
+    _receiving: bool = field(default=False, init=False)
+    _closed: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
-        """Initialize the transport"""
-        if not self.serialdevice:
+        if self.serialdevice is None:
             raise ValueError("serialdevice must be given")
-        self._serialhandler = serial.threaded.ReaderThread(self.serialdevice, RS232SerialProtocol)
-        self._serialhandler.start()
-        self._serialhandler.protocol.handle_line = self.message_received
 
+    async def _connect(self) -> None:
+        """Called under the transport lock, so initialization happens only once."""
+        if self._closed:
+            raise RuntimeError("Serial transport is closed")
+        if self._writer is not None:
+            return
+        loop = asyncio.get_running_loop()
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        transport, _ = await serial_asyncio.connection_for_serial(loop, lambda: protocol, self.serialdevice)
+        self._writer = asyncio.StreamWriter(transport, protocol, reader, loop)
+        self._read_task = asyncio.create_task(self._read_lines(reader))
+        try:
+            await self._initialize()
+        except BaseException:
+            await self.quit()
+            raise
+
+    async def _initialize(self) -> None:
+        """Hook for serial controllers that need startup commands."""
+
+    async def _read_lines(self, reader: asyncio.StreamReader) -> None:
+        try:
+            while True:
+                line = await reader.readuntil(self._terminator)
+                self.message_received(line[: -len(self._terminator)].decode("ascii", errors="replace"))
+        except Exception as exc:
+            self._read_error = exc
+            self._responses.put_nowait(exc)
+
+    @override
+    def message_received(self, message: str) -> None:
+        """Keep early replies while retaining explicit callback support."""
+        if self.message_callback is not None or (self.unsolicited_message_callback is not None and not self._receiving):
+            super().message_received(message)
+        else:
+            self._responses.put_nowait(message)
+
+    async def _write_line(self, command: str) -> None:
+        if self._writer is None or self._writer.is_closing():
+            raise RuntimeError("Serial transport is not connected")
+        self._writer.write(command.encode("ascii", errors="replace") + self._terminator)
+        await asyncio.wait_for(self._writer.drain(), timeout=WRITE_TIMEOUT)
+
+    @override
     async def send_command(self, command: str) -> None:
-        """Wrapper for write_line on the protocol with some sanity checks"""
-        if not self._serialhandler or not self._serialhandler.is_alive():
-            raise RuntimeError("Serial handler not ready")
         async with self.lock:
-            self._serialhandler.protocol.write_line(command)
+            await self._connect()
+            await self._write_line(command)
 
+    async def _read_response(self) -> str:
+        if self._responses.empty() and self._read_error is not None:
+            raise self._read_error
+        self._receiving = True
+        try:
+            response = await self._responses.get()
+        finally:
+            self._receiving = False
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    @override
     async def get_response(self) -> str:
-        """Serial devices send responses without needing to be told to, just reads it"""
-        # TODO: we probably have a race-condition possibility here, maybe always put all received
-        # messages to a stack and return popleft ??
         async with self.lock:
-            response: Optional[str] = None
+            await self._connect()
+            return await self._read_response()
 
-            # pylint: disable=R0801
-            def set_response(message: str) -> None:
-                """Callback for setting the response"""
-                nonlocal response, self
-                response = message
-                self.blevent.set()
-
-            self.blevent.clear()
-            self.message_callback = set_response
-            await asyncio.get_event_loop().run_in_executor(None, self.blevent.wait)
-            self.message_callback = None
-            return cast(str, response)
-
+    @override
     async def abort_command(self) -> None:
-        """Uses the break-command to issue "Device clear", from the SCPI documentation (for HP6632B):
-        The status registers, the error queue, and all configuration states are left unchanged when a device
-        clear message is received. Device clear performs the following actions:
-             - The input and output buffers of the dc source are cleared.
-             - The dc source is prepared to accept a new command string."""
-        if not self._serialhandler:
-            raise RuntimeError("No serialhandler")
-        if not self._serialhandler.serial:
-            raise RuntimeError("No serialhandler.serial")
+        """Send a serial BREAK without blocking the event loop."""
         async with self.lock:
-            self._serialhandler.serial.send_break()
+            await self._connect()
+            assert self.serialdevice is not None
+            self.serialdevice.break_condition = True
+            try:
+                await asyncio.sleep(0.25)
+            finally:
+                self.serialdevice.break_condition = False
 
+    @override
     async def quit(self) -> None:
-        """Closes the port and background threads"""
-        if not self._serialhandler:
-            raise RuntimeError("No serialhandler")
-        if not self._serialhandler.serial:
-            raise RuntimeError("No serialhandler.serial")
-        self._serialhandler.close()
+        """Close the port and wake pending reads; safe before first use or repeatedly."""
+        if self._closed:
+            return
+        self._closed = True
+        self._read_error = ConnectionError("Serial transport is closed")
+        self._responses.put_nowait(self._read_error)
+        if self._read_task is not None:
+            self._read_task.cancel()
+            await asyncio.gather(self._read_task, return_exceptions=True)
+        if self._writer is not None:
+            self._writer.close()
+            await self._writer.wait_closed()
+        elif self.serialdevice is not None:
+            self.serialdevice.close()
 
 
-def get(serial_url: str, **serial_kwargs: Dict[str, Any]) -> RS232Transport:
-    """Shorthand for creating the port from url and initializing the transport"""
+def get(serial_url: str, **serial_kwargs: Any) -> RS232Transport:
+    """Open the port synchronously; attach async I/O when the transport is used."""
     port = serial.serial_for_url(serial_url, **serial_kwargs)
     return RS232Transport(serialdevice=port)

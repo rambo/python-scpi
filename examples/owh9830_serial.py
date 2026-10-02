@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--baudrate", type=int, default=115200)
     parser.add_argument("--element", choices=("1A", "1B", "1C", "1sigma", "1A-C"), default="1A")
     parser.add_argument("--max-order", type=int, choices=range(1, 64), default=7)
+    parser.add_argument("--harmonics", action="store_true", help="include harmonics (1..10) in snapshot measurements")
     parser.add_argument(
         "--stream", type=int, nargs="?", const=-1, default=0, help="stream snapshots (count or continuous)"
     )
@@ -24,14 +25,25 @@ if __name__ == "__main__":
     if args.stream != 0:
         print(f"Streaming snapshots for {args.element} (Ctrl-C to stop)...")
         try:
-            for count, snapshot in enumerate(dev.measure_snapshots(args.element), 1):
+            stream = (
+                dev.measure_harmonic_snapshots(args.element, max_order=min(args.max_order, 10))
+                if args.harmonics
+                else dev.measure_snapshots(args.element)
+            )
+            for count, snapshot in enumerate(stream, 1):
                 print(f"[{count}]", snapshot)
                 if args.stream > 0 and count >= args.stream:
                     break
         except KeyboardInterrupt:
             pass
     else:
-        print("Snapshot (V/A/degrees/W/var):", dev.measure_snapshot(args.element))
-        if args.element in ("1A", "1B", "1C"):
+        if args.harmonics:
+            print(
+                "Snapshot with harmonics:",
+                dev.measure_harmonic_snapshot(args.element, max_order=min(args.max_order, 10)),
+            )
+        else:
+            print("Snapshot (V/A/degrees/W/var):", dev.measure_snapshot(args.element))
+        if args.element in ("1A", "1B", "1C") and not args.harmonics:
             print("Harmonics (orders 1..max_order, V/A):", dev.measure_harmonics(args.element, args.max_order))
     os.environ["PYTHONINSPECT"] = "1"

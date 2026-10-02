@@ -50,35 +50,46 @@ from the same held set of meter-reported values::
     print(single["1A"]["voltage"])
     print(all_phases["1B"]["phase_angle"])
 
+Use ``measure_harmonic_snapshot`` to read scalars and harmonics up to 10th order
+(1--10) under the same held set::
+
+    harmonic_snap = dev.measure_harmonic_snapshot("1A", max_order=10)
+    print(harmonic_snap["1A"]["harmonics"]["voltage"])
+
 The result always maps element names to dictionaries containing ``voltage`` (V),
 ``current`` (A), ``phase_angle`` (degrees), ``real_power`` (W) and
-``reactive_power`` (var). Single ``1A``, ``1B``, ``1C`` and ``1sigma`` selections
-are supported, as is the combined ``1A-C`` selection. Inputs are case insensitive;
-returned names are canonical. Values are ``Decimal`` or ``None`` for unavailable
-readings (``----``), including phase/power on unconnected phases.
+``reactive_power`` (var), and optionally ``harmonics`` (tuples of ``voltage`` and
+``current`` harmonics). Single ``1A``, ``1B``, ``1C`` and ``1sigma`` selections
+are supported for scalar snapshots, and ``1A``, ``1B``, ``1C`` and ``1A-C`` for
+harmonic snapshots. Inputs are case insensitive; returned names are canonical.
+Values are ``Decimal`` or ``None`` for unavailable readings (``----``),
+including phase/power on unconnected phases.
 
 The method configures the numeric display page once per selection (five slots
-in 8ITEM or fifteen in 16ITEM), then reuses it for repeated polls. It queries the
-current HOLD state, enables HOLD if necessary, reads the configured slots, and
-restores HOLD in a ``finally`` block. It waits one configured update period plus
-110 ms after setup or its previous HOLD release so rapid polling permits new
-frames to update. An existing HOLD ON stays ON and returns its already-held
-values for the same selection. Changing selection while HOLD is already ON
-raises ``ValueError``; release HOLD first. The entire sequence excludes other
-I/O through the same device instance. Measurement mode is preserved.
+in 8ITEM or fifteen in 16ITEM) and harmonic order range, then reuses it for
+repeated polls. It queries the current HOLD state, enables HOLD if necessary,
+reads the configured slots and harmonic lists, and restores HOLD in a ``finally``
+block. It waits one configured update period plus 110 ms after setup or its
+previous HOLD release so rapid polling permits new frames to update. An existing
+HOLD ON stays ON and returns its already-held values for the same selection.
+Changing selection while HOLD is already ON raises ``ValueError``; release HOLD
+first. The entire sequence excludes other I/O through the same device instance.
+Measurement mode is preserved or switched to ``HARMONIC`` when harmonics are
+requested.
 
 The numeric display configuration remains selected after the call. This API owns
 those slots while polling; changing them on the front panel or through another
 protocol/transport instance requires a new device instance before polling again.
-Numeric and update-rate commands sent through ``dev.command`` invalidate the
-cached selection.
+Numeric, harmonic, and update-rate commands sent through ``dev.command``
+invalidate the cached selection.
 The method does not change update rate or guarantee new data on every poll.
 HOLD stabilizes reported readings; simultaneous ADC acquisition across channels
 has not been established.
 
-The interactive all-phase example is::
+The interactive all-phase and harmonic examples are::
 
     uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --element 1A-C
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --harmonics
 
 Streaming snapshots
 -------------------
@@ -89,22 +100,33 @@ as fast as possible via an async iterator without toggling HOLD on each frame::
     async for snapshot in dev.measure_snapshots("1A"):
         print(snapshot["1A"]["voltage"], snapshot["1A"]["current"])
 
+Use ``measure_harmonic_snapshots`` (or ``stream_harmonic_snapshots``) to stream
+snapshots including harmonics up to order 10::
+
+    async for snapshot in dev.measure_harmonic_snapshots("1A", max_order=10):
+        print(snapshot["1A"]["voltage"], snapshot["1A"]["harmonics"]["voltage"])
+
 Synchronous code using ``AIOWrapper`` supports streaming using a standard ``for`` loop::
 
     for snapshot in dev.measure_snapshots("1A"):
         print(snapshot["1A"])
 
-The iterator configures the numeric display page slots once at stream start.
-While the iterator is active, commands that modify instrument setup (such as
-harmonic measurements, single snapshots, or ``:NUM``, ``:RATE``, ``*RST``,
-``:DISP:MOD``, ``:HOLD``, and ``:HARM:ORD`` configuration commands) refuse to
-execute and raise ``RuntimeError`` to prevent configuration conflicts.
-Read-only queries (e.g. ``measure_voltage`` or ``ask``) execute safely between polls.
+    for snapshot in dev.measure_harmonic_snapshots("1A"):
+        print(snapshot["1A"]["harmonics"])
+
+The iterator configures the numeric display page slots and harmonic settings
+once at stream start. While the iterator is active, commands that modify
+instrument setup (such as harmonic measurements, single snapshots, or ``:NUM``,
+``:RATE``, ``*RST``, ``:DISP:MOD``, ``:HOLD``, and ``:HARM:ORD`` configuration
+commands) refuse to execute and raise ``RuntimeError`` to prevent configuration
+conflicts. Read-only queries (e.g. ``measure_voltage`` or ``ask``) execute
+safely between polls.
 
 The interactive examples are::
 
     uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5
-    uv run --locked python examples/owh9830_async_stream.py /dev/tty.usbserial-A92TRYDJ --count 5
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5 --harmonics
+    uv run --locked python examples/owh9830_async_stream.py /dev/tty.usbserial-A92TRYDJ --count 5 --harmonics 10
 
 Batching experiments
 --------------------

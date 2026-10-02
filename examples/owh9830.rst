@@ -1,0 +1,40 @@
+OWON OWH9830 power meter
+------------------------
+
+Connect directly to the meter's RS-232 port with SCPI selected and matching
+baud rate (default 115200, 8N1)::
+
+    from scpi.devices.owh9830 import serial
+    from scpi.wrapper import AIOWrapper
+
+    dev = AIOWrapper(serial("/dev/tty.usbserial-A92TRYDJ"))
+    try:
+        volts = dev.measure_voltage("1A")
+        amps = dev.measure_current("1A")
+        degrees = dev.measure_phase_angle("1A")
+        watts = dev.measure_real_power("1A")
+        var = dev.measure_reactive_power("1A")
+        harmonics = dev.measure_harmonics("1A", max_order=7)
+    finally:
+        dev.quit()
+
+Measurements return ``Decimal`` values. Elements are ``1A``, ``1B``, ``1C``
+and ``1sigma`` (case insensitive). Harmonics support individual phases only;
+``voltage`` and ``current`` tuples contain RMS amplitudes in volts and amps,
+starting with the fundamental at index zero, through ``max_order`` (1--63).
+Harmonic reads enable harmonic measurement mode and leave it enabled so data
+keeps updating; scalar measurements also work in this mode. The first read waits
+one update period after switching modes or requesting more than ten orders.
+Orders 1--10 use one range command and two list queries. Reads update the display
+order range. Higher orders use two queries per order because firmware V1.2.0
+truncates long list replies and can omit separators. Unavailable individual
+readings (``----``) are returned as ``None``
+in their order's position. Reads do not guarantee an atomic snapshot.
+
+``OWH9830(transport)`` also accepts existing transports/protocols for async use.
+Commands are spaced by more than 100 ms. Generic ``SYST:ERR?`` checks are
+disabled because this command is unsupported. Blank or malformed measurements
+raise ``ValueError``; if replies are blank, check the front-panel LOCAL state.
+Use one device instance per meter. The interactive example is::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --max-order 7

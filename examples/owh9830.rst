@@ -80,6 +80,31 @@ The interactive all-phase example is::
 
     uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --element 1A-C
 
+Streaming snapshots
+-------------------
+
+Use ``measure_snapshots`` (or ``stream_snapshots``) to stream snapshot measurements
+as fast as possible via an async iterator without toggling HOLD on each frame::
+
+    async for snapshot in dev.measure_snapshots("1A"):
+        print(snapshot["1A"]["voltage"], snapshot["1A"]["current"])
+
+Synchronous code using ``AIOWrapper`` supports streaming using a standard ``for`` loop::
+
+    for snapshot in dev.measure_snapshots("1A"):
+        print(snapshot["1A"])
+
+The iterator configures the numeric display page slots once at stream start.
+While the iterator is active, commands that modify instrument setup (such as
+harmonic measurements, single snapshots, or ``:NUM``, ``:RATE``, ``*RST``,
+``:DISP:MOD``, ``:HOLD``, and ``:HARM:ORD`` configuration commands) refuse to
+execute and raise ``RuntimeError`` to prevent configuration conflicts.
+Read-only queries (e.g. ``measure_voltage`` or ``ask``) execute safely between polls.
+
+The interactive streaming example is::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5
+
 Batching experiments
 --------------------
 

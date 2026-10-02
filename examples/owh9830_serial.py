@@ -14,11 +14,24 @@ if __name__ == "__main__":
     parser.add_argument("--baudrate", type=int, default=115200)
     parser.add_argument("--element", choices=("1A", "1B", "1C", "1sigma", "1A-C"), default="1A")
     parser.add_argument("--max-order", type=int, choices=range(1, 64), default=7)
+    parser.add_argument(
+        "--stream", type=int, nargs="?", const=-1, default=0, help="stream snapshots (count or continuous)"
+    )
     args = parser.parse_args()
     dev = AIOWrapper(serial(args.port, baudrate=args.baudrate))
     atexit.register(dev.quit)
     print(dev.identify())
-    print("Snapshot (V/A/degrees/W/var):", dev.measure_snapshot(args.element))
-    if args.element in ("1A", "1B", "1C"):
-        print("Harmonics (orders 1..max_order, V/A):", dev.measure_harmonics(args.element, args.max_order))
+    if args.stream != 0:
+        print(f"Streaming snapshots for {args.element} (Ctrl-C to stop)...")
+        try:
+            for count, snapshot in enumerate(dev.measure_snapshots(args.element), 1):
+                print(f"[{count}]", snapshot)
+                if args.stream > 0 and count >= args.stream:
+                    break
+        except KeyboardInterrupt:
+            pass
+    else:
+        print("Snapshot (V/A/degrees/W/var):", dev.measure_snapshot(args.element))
+        if args.element in ("1A", "1B", "1C"):
+            print("Harmonics (orders 1..max_order, V/A):", dev.measure_harmonics(args.element, args.max_order))
     os.environ["PYTHONINSPECT"] = "1"

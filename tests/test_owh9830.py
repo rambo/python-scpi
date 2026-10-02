@@ -118,3 +118,122 @@ async def test_command_spacing() -> None:
     dev = OWH9830(cast(SCPIProtocol, protocol))
     await asyncio.gather(dev.measure_voltage(), dev.measure_current())
     assert times[1] - times[0] > 0.1
+
+
+@pytest.mark.asyncio
+async def test_snapshot_mapping_and_cache() -> None:
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(side_effect=["OFF", "0.1s", "221.5,3.03,0.61,671,7", "OFF", "221.4,3.02,0.60,670,6"])
+    hold_times: list[float] = []
+
+    async def command(command: str, *args: object, **kwargs: object) -> None:
+        if command.startswith(":HOLD "):
+            hold_times.append(asyncio.get_running_loop().time())
+
+    protocol.command = AsyncMock(side_effect=command)
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+    first, second = await asyncio.gather(dev.measure_snapshot(), dev.measure_snapshot("1a"))
+    assert first == {
+        "1A": {
+            "voltage": Decimal("221.5"),
+            "current": Decimal("3.03"),
+            "phase_angle": Decimal("0.61"),
+            "real_power": Decimal("671"),
+            "reactive_power": Decimal("7"),
+        }
+    }
+    assert second["1A"]["real_power"] == Decimal("670")
+    assert hold_times[2] - hold_times[1] > 0.1  # Let a fresh frame update between HOLD cycles.
+    assert [call.args[0] for call in protocol.command.await_args_list] == [
+        ":NUM:NORM:ITEM 8ITEM",
+        ":NUM:NORM:OPTION 1,U,1",
+        ":NUM:NORM:OPTION 2,I,1",
+        ":NUM:NORM:OPTION 3,pha,1",
+        ":NUM:NORM:OPTION 4,P,1",
+        ":NUM:NORM:OPTION 5,Q,1",
+        ":NUM:NORM:NUM 5",
+        ":HOLD ON",
+        ":HOLD OFF",
+        ":HOLD ON",
+        ":HOLD OFF",
+    ]
+    protocol.command.reset_mock()
+    all_reply = "221.5,3.03,0.61,671,7,0,0,----,----,----,0,0,----,----,----"
+    protocol.ask.side_effect = ["OFF", "0.1s", all_reply]
+    all_phases = await dev.measure_snapshot("1a-c")
+    assert tuple(all_phases) == ("1A", "1B", "1C")
+    assert all_phases["1B"]["voltage"] == Decimal("0")
+    assert all_phases["1B"]["phase_angle"] is None
+    assert all_phases["1C"]["reactive_power"] is None
+    commands = [call.args[0] for call in protocol.command.await_args_list]
+    assert commands[0] == ":NUM:NORM:ITEM 16ITEM"
+    assert commands[6] == ":NUM:NORM:OPTION 6,U,2"
+    assert commands[11] == ":NUM:NORM:OPTION 11,U,3"
+    assert commands[-3] == ":NUM:NORM:NUM 15"
+    protocol.command.reset_mock()
+    protocol.ask.side_effect = ["ON", all_reply]
+    assert await dev.measure_snapshot("1A-C") == all_phases
+    protocol.command.assert_not_awaited()  # Existing HOLD ON stays ON.
+    protocol.ask.side_effect = ["ON"]
+    with pytest.raises(ValueError, match="Release HOLD"):
+        await dev.measure_snapshot("1A")
+    protocol.ask.side_effect = ["OFF", "0.1s", "221,3,0.6,670,0"]
+    sigma = await dev.measure_snapshot("1SIGMA")
+    assert tuple(sigma) == ("1sigma",)
+    assert protocol.command.await_args_list[-4].args[0] == ":NUM:NORM:OPTION 5,Q,0"
+    await dev.command(":NUM:NORM:OPTION 1,I,1")
+    assert dev._snapshot_elements is None
+    for invalid in ("1", "2", "1A-D", "1A;*RST"):
+        with pytest.raises(ValueError, match="element must"):
+            await dev.measure_snapshot(invalid)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["1,2", "1,2,NaN,4,5", "1,2,,4,5", TimeoutError(), asyncio.CancelledError()])
+async def test_snapshot_releases_hold_on_failure(failure: str | BaseException) -> None:
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(side_effect=["OFF", "0.1s", failure])
+    protocol.command = AsyncMock()
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+    error = ValueError if isinstance(failure, str) else type(failure)
+    with pytest.raises(error):
+        await dev.measure_snapshot()
+    assert [call.args[0] for call in protocol.command.await_args_list[-2:]] == [":HOLD ON", ":HOLD OFF"]
+    assert dev._snapshot_elements is None
+
+
+@pytest.mark.asyncio
+async def test_snapshot_long_reply_and_io_exclusion() -> None:
+    commands: list[str] = []
+    replies = iter(["OFF", "0.1s", "1,2,3,4," + "0" * 119, "11", "22", "----", "44", "55", "230"])
+
+    async def ask(command: str, *args: object, **kwargs: object) -> str:
+        commands.append(command)
+        await asyncio.sleep(0)
+        return next(replies)
+
+    async def command(command: str, *args: object, **kwargs: object) -> None:
+        commands.append(command)
+        await asyncio.sleep(0)
+
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(side_effect=ask)
+    protocol.command = AsyncMock(side_effect=command)
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+    snapshot, voltage = await asyncio.gather(dev.measure_snapshot(), dev.measure_voltage())
+    assert snapshot["1A"]["voltage"] == Decimal("11")
+    assert snapshot["1A"]["phase_angle"] is None
+    assert snapshot["1A"]["reactive_power"] == Decimal("55")
+    assert voltage == Decimal("230")
+    assert commands[-7:] == [
+        ":MEAS:VOLT:ELEMENT1A?",
+        ":MEAS:CURR:ELEMENT1A?",
+        ":MEAS:PHAS:ELEMENT1A?",
+        ":MEAS:POW:REAL:ELEMENT1A?",
+        ":MEAS:POW:REAC:ELEMENT1A?",
+        ":HOLD OFF",
+        ":MEAS:VOLT:ELEMENT1A?",
+    ]

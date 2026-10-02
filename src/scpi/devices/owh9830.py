@@ -30,6 +30,9 @@ class OWH9830(SCPIDevice):
     _io_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
     _harmonic_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
     _last_command: float = field(default=float("-inf"), init=False, repr=False)
+    _snapshot_elements: tuple[str, ...] | None = field(default=None, init=False, repr=False)
+    _snapshot_period: float = field(default=0.5, init=False, repr=False)
+    _snapshot_ready_at: float = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -47,8 +50,14 @@ class OWH9830(SCPIDevice):
     ) -> str:
         """Pace queries without issuing unsupported error queries on timeout."""
         async with self._io_lock:
-            await self._pace()
-            return await self.protocol.ask(command, cmd_timeout, abort_on_timeout, auto_check_error=False)
+            return await self._ask(command, cmd_timeout, abort_on_timeout)
+
+    async def _ask(
+        self, command: str, cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT, abort_on_timeout: bool = False
+    ) -> str:
+        """Query while the caller owns _io_lock."""
+        await self._pace()
+        return await self.protocol.ask(command, cmd_timeout, abort_on_timeout, auto_check_error=False)
 
     @override
     async def command(
@@ -56,8 +65,16 @@ class OWH9830(SCPIDevice):
     ) -> None:
         """Pace configuration commands; no serial BREAK is sent by default."""
         async with self._io_lock:
-            await self._pace()
-            await self.protocol.command(command, cmd_timeout, abort_on_timeout, auto_check_error=False)
+            await self._command(command, cmd_timeout, abort_on_timeout)
+
+    async def _command(
+        self, command: str, cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT, abort_on_timeout: bool = False
+    ) -> None:
+        """Configure while the caller owns _io_lock."""
+        if command.strip().upper().lstrip(":").startswith(("NUM", "RATE", "*RST")):
+            self._snapshot_elements = None
+        await self._pace()
+        await self.protocol.command(command, cmd_timeout, abort_on_timeout, auto_check_error=False)
 
     @staticmethod
     def _element(element: str, *, harmonics: bool = False) -> str:
@@ -102,6 +119,87 @@ class OWH9830(SCPIDevice):
     async def measure_reactive_power(self, element: str = "1A") -> Decimal:
         """Return reactive power in var."""
         return (await self._values(f":MEAS:POW:REAC:ELEMENT{self._element(element)}?"))[0]
+
+    async def measure_snapshot(self, element: str = "1A") -> dict[str, dict[str, Decimal | None]]:
+        """Read voltage/current/phase/real/reactive power for one element or 1A-C.
+
+        Returns an element-keyed dictionary, with units V, A, degrees, W and var.
+        Unavailable fields are None. Configures and owns the numeric display page;
+        repeated calls with the same selection reuse its configuration.
+        HOLD freezes reported values for the read and its previous state is restored.
+        Allows one update period before freezing a new frame. Changing selection
+        while HOLD is already ON raises ValueError; unchanged selections remain held.
+        Measurement mode is preserved. This does not prove simultaneous ADC sampling.
+        """
+        normalized = element.upper()
+        if normalized == "1A-C":
+            elements = ("1A", "1B", "1C")
+        else:
+            normalized = self._element(element)
+            elements = ("1sigma" if normalized == "1SIGMA" else normalized,)
+        fields = ("voltage", "current", "phase_angle", "real_power", "reactive_power")
+        async with self._io_lock:
+            hold = (await self._ask(":HOLD?")).strip().upper()
+            if hold not in ("ON", "OFF", "1", "0"):
+                raise ValueError(f"Unexpected OWH9830 HOLD state: {hold!r}")
+            release_hold = hold in ("OFF", "0")
+            if self._snapshot_elements != elements:
+                if not release_hold:
+                    raise ValueError("Release HOLD before changing snapshot selection")
+                await self._configure_snapshot(elements)
+            try:
+                if release_hold:
+                    await asyncio.sleep(max(0, self._snapshot_ready_at - asyncio.get_running_loop().time()))
+                    await self._command(":HOLD ON")
+                values = await self._snapshot_values(elements)
+            except BaseException:
+                self._snapshot_elements = None
+                raise
+            finally:
+                if release_hold:
+                    await self._command(":HOLD OFF")
+                    self._snapshot_ready_at = asyncio.get_running_loop().time() + self._snapshot_period + 0.11
+        return {
+            selected: dict(zip(fields, values[index * len(fields) : (index + 1) * len(fields)], strict=True))
+            for index, selected in enumerate(elements)
+        }
+
+    async def _configure_snapshot(self, elements: tuple[str, ...]) -> None:
+        """Select numeric slots while the caller owns _io_lock and HOLD is OFF."""
+        functions = ("U", "I", "pha", "P", "Q")
+        channels = {"1A": 1, "1B": 2, "1C": 3, "1sigma": 0}
+        await self._command(f":NUM:NORM:ITEM {16 if len(elements) == 3 else 8}ITEM")
+        for index, selected in enumerate(elements):
+            for offset, function in enumerate(functions, 1):
+                slot = index * len(functions) + offset
+                await self._command(f":NUM:NORM:OPTION {slot},{function},{channels[selected]}")
+        await self._command(f":NUM:NORM:NUM {len(elements) * len(functions)}")
+        period = float((await self._ask(":RATE?")).strip().removesuffix("s"))
+        if period not in (0.1, 0.2, 0.5, 1, 2, 5):
+            raise ValueError(f"Unexpected OWH9830 update period: {period!r}")
+        self._snapshot_period = period
+        self._snapshot_ready_at = asyncio.get_running_loop().time() + period + 0.11
+        self._snapshot_elements = elements
+
+    async def _snapshot_values(self, elements: tuple[str, ...]) -> list[Decimal | None]:
+        """Read numeric slots while the caller owns _io_lock and HOLD is active."""
+        count = len(elements) * 5
+        command = ":NUM:NORM:VAL?"
+        response = await self._ask(command)
+        # V1.2.0 has a 128-byte output buffer, including LF.
+        if len(response) >= 127:
+            # Indexed NUM slot reads disagree with bulk data on this firmware.
+            quantities = ("VOLT", "CURR", "PHAS", "POW:REAL", "POW:REAC")
+            replies = [
+                await self._ask(f":MEAS:{quantity}:ELEMENT{selected.upper()}?")
+                for selected in elements
+                for quantity in quantities
+            ]
+        else:
+            replies = response.strip().removesuffix(",").split(",")
+        if len(replies) != count:
+            raise ValueError(f"Expected {count} snapshot values, got {response!r}")
+        return [None if value.strip() == "----" else self._numbers(value, command)[0] for value in replies]
 
     async def measure_harmonics(self, element: str = "1A", max_order: int = 7) -> dict[str, tuple[Decimal | None, ...]]:
         """Return voltage (V) and current (A) RMS harmonics, orders 1..max_order.

@@ -101,9 +101,10 @@ harmonic measurements, single snapshots, or ``:NUM``, ``:RATE``, ``*RST``,
 execute and raise ``RuntimeError`` to prevent configuration conflicts.
 Read-only queries (e.g. ``measure_voltage`` or ``ask``) execute safely between polls.
 
-The interactive streaming example is::
+The interactive examples are::
 
     uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5
+    uv run --locked python examples/owh9830_async_stream.py /dev/tty.usbserial-A92TRYDJ --count 5
 
 Batching experiments
 --------------------

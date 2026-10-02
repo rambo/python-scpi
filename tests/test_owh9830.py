@@ -329,3 +329,97 @@ async def test_measure_snapshots_stream() -> None:
         assert item["1A"]["voltage"] == Decimal("220.0")
         assert dev._streaming_snapshots is True
     assert dev._streaming_snapshots is False
+
+
+@pytest.mark.asyncio
+async def test_harmonic_snapshot_mapping_and_errors() -> None:
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(
+        side_effect=[
+            "OFF",
+            "NORM",
+            "0.1s",
+            "220.0,3.00,0.60,660,10",
+            "220.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,",
+            "3.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,",
+        ]
+    )
+    protocol.command = AsyncMock()
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+
+    snap = await dev.measure_harmonic_snapshot("1A", max_order=10)
+    assert snap["1A"]["voltage"] == Decimal("220.0")
+    assert snap["1A"]["real_power"] == Decimal("660")
+    assert snap["1A"]["harmonics"]["voltage"] == tuple(
+        Decimal(f"0.{i}") if i > 0 else Decimal("220.0") for i in range(10)
+    )
+    assert snap["1A"]["harmonics"]["current"] == tuple(
+        Decimal(f"0.0{i}") if i > 0 else Decimal("3.0") for i in range(10)
+    )
+
+    assert [call.args[0] for call in protocol.command.await_args_list] == [
+        ":DISP:MOD HARMONIC",
+        ":HARM:ORD:ELEMENT1A 1,10",
+        ":NUM:NORM:ITEM 8ITEM",
+        ":NUM:NORM:OPTION 1,U,1",
+        ":NUM:NORM:OPTION 2,I,1",
+        ":NUM:NORM:OPTION 3,pha,1",
+        ":NUM:NORM:OPTION 4,P,1",
+        ":NUM:NORM:OPTION 5,Q,1",
+        ":NUM:NORM:NUM 5",
+        ":HOLD ON",
+        ":HOLD OFF",
+    ]
+
+    # Error conditions
+    for bad_order in (0, 11, True, "10", 2.5):
+        with pytest.raises(ValueError, match="max_order must be an integer from 1 to 10"):
+            await dev.measure_harmonic_snapshot("1A", max_order=cast(int, bad_order))
+
+    with pytest.raises(ValueError, match="harmonics support 1A, 1B and 1C only"):
+        await dev.measure_harmonic_snapshot("1sigma")
+
+
+@pytest.mark.asyncio
+async def test_harmonic_snapshots_stream() -> None:
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(
+        side_effect=[
+            "OFF",
+            "HARMONIC",
+            "0.1s",
+            "220.0,3.00,0.60,660,10",
+            "220.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,",
+            "3.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06,",
+            "220.1,3.01,0.60,661,11",
+            "220.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,",
+            "3.01, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06,",
+        ]
+    )
+    protocol.command = AsyncMock()
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+
+    items = []
+    async for s in dev.measure_harmonic_snapshots("1A", max_order=7):
+        items.append(s)
+        if len(items) == 2:
+            break
+
+    assert len(items) == 2
+    assert items[0]["1A"]["voltage"] == Decimal("220.0")
+    assert len(items[0]["1A"]["harmonics"]["voltage"]) == 7
+    assert items[1]["1A"]["voltage"] == Decimal("220.1")
+    assert len(items[1]["1A"]["harmonics"]["voltage"]) == 7
+
+    assert [call.args[0] for call in protocol.command.await_args_list] == [
+        ":HARM:ORD:ELEMENT1A 1,7",
+        ":NUM:NORM:ITEM 8ITEM",
+        ":NUM:NORM:OPTION 1,U,1",
+        ":NUM:NORM:OPTION 2,I,1",
+        ":NUM:NORM:OPTION 3,pha,1",
+        ":NUM:NORM:OPTION 4,P,1",
+        ":NUM:NORM:OPTION 5,Q,1",
+        ":NUM:NORM:NUM 5",
+    ]

@@ -237,3 +237,95 @@ async def test_snapshot_long_reply_and_io_exclusion() -> None:
         ":HOLD OFF",
         ":MEAS:VOLT:ELEMENT1A?",
     ]
+
+
+@pytest.mark.asyncio
+async def test_measure_snapshots_stream() -> None:
+    protocol = Mock(spec=SCPIProtocol, transport=Mock(spec=BaseTransport))
+    protocol.ask = AsyncMock(
+        side_effect=[
+            "OFF",
+            "0.1s",
+            "220.0,3.00,0.60,660,10",
+            "220.1,3.01,0.60,661,11",
+            "220.2,3.02,0.60,662,12",
+        ]
+    )
+    protocol.command = AsyncMock()
+    dev = OWH9830(cast(SCPIProtocol, protocol))
+    dev._pace = AsyncMock()
+
+    # 1. Single-element streaming setup once and rapid reads
+    stream = dev.measure_snapshots("1A")
+    items = []
+    async for s in stream:
+        items.append(s)
+        if len(items) == 3:
+            break
+
+    assert len(items) == 3
+    assert items[0]["1A"]["voltage"] == Decimal("220.0")
+    assert items[1]["1A"]["voltage"] == Decimal("220.1")
+    assert items[2]["1A"]["voltage"] == Decimal("220.2")
+
+    # Slot setup was called once only, then :NUM:NORM:VAL? queries
+    assert [call.args[0] for call in protocol.command.await_args_list] == [
+        ":NUM:NORM:ITEM 8ITEM",
+        ":NUM:NORM:OPTION 1,U,1",
+        ":NUM:NORM:OPTION 2,I,1",
+        ":NUM:NORM:OPTION 3,pha,1",
+        ":NUM:NORM:OPTION 4,P,1",
+        ":NUM:NORM:OPTION 5,Q,1",
+        ":NUM:NORM:NUM 5",
+    ]
+    assert [call.args[0] for call in protocol.ask.await_args_list] == [
+        ":HOLD?",
+        ":RATE?",
+        ":NUM:NORM:VAL?",
+        ":NUM:NORM:VAL?",
+        ":NUM:NORM:VAL?",
+    ]
+
+    # Stream is still active, verify setup-changing commands are blocked
+    with pytest.raises(RuntimeError, match="Cannot measure harmonics"):
+        await dev.measure_harmonics()
+    with pytest.raises(RuntimeError, match="Cannot execute measure_snapshot"):
+        await dev.measure_snapshot()
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command(":RATE 1s")
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command(":NUM:NORM:NUM 10")
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command("*RST")
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command(":DISP:MOD NORM")
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command(":HOLD ON")
+    with pytest.raises(RuntimeError, match="while snapshot iterator is active"):
+        await dev.command(":HARM:ORD:ELEMENT1A 1,7")
+
+    # Concurrent iterator should be refused
+    stream2 = dev.measure_snapshots("1B")
+    with pytest.raises(RuntimeError, match="Snapshot iterator is already active"):
+        await anext(stream2)
+
+    # Non-setup modifying queries work
+    protocol.ask.side_effect = ["220.5"]
+    assert await dev.measure_voltage("1A") == Decimal("220.5")
+
+    # Close the stream
+    await stream.aclose()
+
+    # After close, setup commands and measure_snapshot work again
+    protocol.ask.side_effect = ["OFF", "220.0,3.00,0.60,660,10"]
+    protocol.command.reset_mock()
+    snap = await dev.measure_snapshot("1A")
+    assert snap["1A"]["voltage"] == Decimal("220.0")
+
+    # Context manager usage
+    protocol.ask.side_effect = ["220.0,3.00,0.60,660,10"]
+    async with dev.measure_snapshots("1A") as stream3:
+        item = await anext(stream3)
+        assert item["1A"]["voltage"] == Decimal("220.0")
+        assert dev._streaming_snapshots is True
+    assert dev._streaming_snapshots is False

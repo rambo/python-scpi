@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Any, ClassVar, override
+from typing import Any, ClassVar, Self, override
 
 import serial as pyserial
 
@@ -33,6 +33,7 @@ class OWH9830(SCPIDevice):
     _snapshot_elements: tuple[str, ...] | None = field(default=None, init=False, repr=False)
     _snapshot_period: float = field(default=0.5, init=False, repr=False)
     _snapshot_ready_at: float = field(default=0, init=False, repr=False)
+    _streaming_snapshots: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -71,7 +72,10 @@ class OWH9830(SCPIDevice):
         self, command: str, cmd_timeout: float = COMMAND_DEFAULT_TIMEOUT, abort_on_timeout: bool = False
     ) -> None:
         """Configure while the caller owns _io_lock."""
-        if command.strip().upper().lstrip(":").startswith(("NUM", "RATE", "*RST")):
+        normalized = command.strip().upper().lstrip(":")
+        if self._streaming_snapshots and normalized.startswith(("NUM", "RATE", "*RST", "DISP", "HARM", "HOLD")):
+            raise RuntimeError(f"Cannot execute {command.strip()!r} while snapshot iterator is active")
+        if normalized.startswith(("NUM", "RATE", "*RST")):
             self._snapshot_elements = None
         await self._pace()
         await self.protocol.command(command, cmd_timeout, abort_on_timeout, auto_check_error=False)
@@ -131,6 +135,8 @@ class OWH9830(SCPIDevice):
         while HOLD is already ON raises ValueError; unchanged selections remain held.
         Measurement mode is preserved. This does not prove simultaneous ADC sampling.
         """
+        if self._streaming_snapshots:
+            raise RuntimeError("Cannot execute measure_snapshot while snapshot iterator is active")
         normalized = element.upper()
         if normalized == "1A-C":
             elements = ("1A", "1B", "1C")
@@ -210,6 +216,8 @@ class OWH9830(SCPIDevice):
         Updates the display order range. Reads are sequential, not an atomic snapshot.
         Above order 10, unavailable readings (----) are represented by None.
         """
+        if self._streaming_snapshots:
+            raise RuntimeError("Cannot measure harmonics while snapshot iterator is active")
         element = self._element(element, harmonics=True)
         if isinstance(max_order, bool) or not isinstance(max_order, int) or not 1 <= max_order <= 63:
             raise ValueError("max_order must be an integer from 1 to 63")
@@ -239,6 +247,89 @@ class OWH9830(SCPIDevice):
                     response = await self.ask(command)
                     result[name].append(None if response.strip() == "----" else self._numbers(response, command)[0])
         return {name: tuple(values) for name, values in result.items()}
+
+    def measure_snapshots(self, element: str = "1A") -> "SnapshotStream":
+        """Stream snapshots as fast as possible using an async iterator.
+
+        Configures numeric display slots once and reuses them on every poll.
+        Commands that change instrument setup refuse to execute while active.
+        """
+        normalized = element.upper()
+        if normalized == "1A-C":
+            elements = ("1A", "1B", "1C")
+        else:
+            normalized = self._element(element)
+            elements = ("1sigma" if normalized == "1SIGMA" else normalized,)
+        fields = ("voltage", "current", "phase_angle", "real_power", "reactive_power")
+        return SnapshotStream(self, elements, fields)
+
+    stream_snapshots = measure_snapshots
+    snapshots = measure_snapshots
+
+
+class SnapshotStream:
+    """Async iterator for rapid OWH9830 snapshot measurement streaming."""
+
+    def __init__(self, dev: OWH9830, elements: tuple[str, ...], fields: tuple[str, ...]) -> None:
+        self._dev = dev
+        self._elements = elements
+        self._fields = fields
+        self._closed = False
+        self._configured = False
+
+    def __aiter__(self) -> Self:
+        return self
+
+    async def __anext__(self) -> dict[str, dict[str, Decimal | None]]:
+        if self._closed:
+            raise StopAsyncIteration
+        if not self._configured:
+            if self._dev._streaming_snapshots:
+                raise RuntimeError("Snapshot iterator is already active")
+            try:
+                async with self._dev._io_lock:
+                    if self._dev._snapshot_elements != self._elements:
+                        hold = (await self._dev._ask(":HOLD?")).strip().upper()
+                        if hold not in ("OFF", "0"):
+                            raise ValueError("Release HOLD before changing snapshot selection")
+                        await self._dev._configure_snapshot(self._elements)
+                self._dev._streaming_snapshots = True
+            except BaseException:
+                self._dev._streaming_snapshots = False
+                self._closed = True
+                raise
+            self._configured = True
+
+        async with self._dev._io_lock:
+            try:
+                values = await self._dev._snapshot_values(self._elements)
+            except BaseException:
+                self._dev._snapshot_elements = None
+                await self.aclose()
+                raise
+        return {
+            selected: dict(
+                zip(self._fields, values[index * len(self._fields) : (index + 1) * len(self._fields)], strict=True)
+            )
+            for index, selected in enumerate(self._elements)
+        }
+
+    async def aclose(self) -> None:
+        if not self._closed:
+            self._closed = True
+            if self._configured:
+                self._dev._streaming_snapshots = False
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        await self.aclose()
+
+    def __del__(self) -> None:
+        if self._configured and not self._closed:
+            self._dev._streaming_snapshots = False
+            self._closed = True
 
 
 def serial(serial_url: str, baudrate: int = 115200, **kwargs: Any) -> OWH9830:

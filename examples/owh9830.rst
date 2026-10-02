@@ -38,3 +38,88 @@ raise ``ValueError``; if replies are blank, check the front-panel LOCAL state.
 Use one device instance per meter. The interactive example is::
 
     uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --max-order 7
+
+Held measurement sets
+---------------------
+
+Use ``measure_snapshot`` for voltage, current, phase angle and real/reactive power
+from the same held set of meter-reported values::
+
+    single = dev.measure_snapshot("1A")
+    all_phases = dev.measure_snapshot("1A-C")
+    print(single["1A"]["voltage"])
+    print(all_phases["1B"]["phase_angle"])
+
+The result always maps element names to dictionaries containing ``voltage`` (V),
+``current`` (A), ``phase_angle`` (degrees), ``real_power`` (W) and
+``reactive_power`` (var). Single ``1A``, ``1B``, ``1C`` and ``1sigma`` selections
+are supported, as is the combined ``1A-C`` selection. Inputs are case insensitive;
+returned names are canonical. Values are ``Decimal`` or ``None`` for unavailable
+readings (``----``), including phase/power on unconnected phases.
+
+The method configures the numeric display page once per selection (five slots
+in 8ITEM or fifteen in 16ITEM), then reuses it for repeated polls. It queries the
+current HOLD state, enables HOLD if necessary, reads the configured slots, and
+restores HOLD in a ``finally`` block. It waits one configured update period plus
+110 ms after setup or its previous HOLD release so rapid polling permits new
+frames to update. An existing HOLD ON stays ON and returns its already-held
+values for the same selection. Changing selection while HOLD is already ON
+raises ``ValueError``; release HOLD first. The entire sequence excludes other
+I/O through the same device instance. Measurement mode is preserved.
+
+The numeric display configuration remains selected after the call. This API owns
+those slots while polling; changing them on the front panel or through another
+protocol/transport instance requires a new device instance before polling again.
+Numeric and update-rate commands sent through ``dev.command`` invalidate the
+cached selection.
+The method does not change update rate or guarantee new data on every poll.
+HOLD stabilizes reported readings; simultaneous ADC acquisition across channels
+has not been established.
+
+The interactive all-phase example is::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --element 1A-C
+
+Batching experiments
+--------------------
+
+Tested on 2026-10-02 with OWH9830 firmware V1.2.0, RS-232 115200 8N1,
+0.5-second update period, a heater on 1A and unconnected 1B/1C. All experiment
+display configurations and HOLD states were restored afterward.
+
+Compound queries separated by semicolons returned only the first voltage
+response, even when current, phase and both powers followed. Numeric bulk reads
+returned correctly ordered values, with no meaningful extra latency from powers:
+
+======================== ================ ==================
+Selection                Quantities       Median reply time
+======================== ================ ==================
+1A                       V/I/phase        23.50 ms
+1A                       V/I/phase/P/Q    23.68 ms
+1A-C                     V/I/phase        33.48 ms
+1A-C                     V/I/phase/P/Q    34.10 ms
+======================== ================ ==================
+
+These are five-sample command-to-complete-response medians, excluding setup,
+command-spacing waits and HOLD operations. A separate ten-sample comparison of
+15-value reads measured 34.63 ms in NORM mode and 34.10 ms in HARMONIC mode;
+normal mode provided no clear benefit. Numeric data continued updating in both.
+HOLD ON produced identical repeated bulk readings and matching direct readings;
+HOLD OFF resumed updates. Bulk phase readings have more digits than the direct
+phase query, which reports one decimal place.
+
+Repeated ``measure_snapshot`` calls, including HOLD and pacing, measured about
+833 ms per call at the 0.5-second update period for both 1A and 1A-C, excluding
+initial configuration. Five consecutive calls returned five distinct sets for
+each selection. Temporarily selecting a 0.1-second update period reduced the
+all-phase median to 444 ms, but five calls returned only two distinct sets.
+Faster polling therefore does not establish a higher acquisition rate.
+
+Stress tests confirmed a 128-byte output limit, including LF, for numeric bulk
+replies as well as harmonic lists. Truncation can leave a plausible partial number,
+so field counts alone cannot detect it. The snapshot method treats a response at
+that limit as suspect and reads each selected measurement using direct
+``:MEAS:...`` queries under the same HOLD. Indexed numeric-slot queries disagreed
+with the bulk data in a stress test and are therefore avoided. The fallback adds
+round trips and uses the direct phase query's one-decimal precision while
+preserving the held set.

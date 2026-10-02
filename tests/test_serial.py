@@ -8,6 +8,7 @@ from collections.abc import Iterator
 import pytest
 import serial
 
+from scpi.devices.owh9830 import _SerialTransport
 from scpi.transports.gpib.prologix import PrologixGPIBTransport
 from scpi.transports.rs232 import RS232Transport, get
 from scpi.wrapper import AIOWrapper
@@ -43,7 +44,7 @@ async def read_peer(master: int, expected: bytes) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("transport_type", "terminator", "startup"),
-    [(RS232Transport, b"\r\n", b""), (PrologixGPIBTransport, b"\n", STARTUP)],
+    [(RS232Transport, b"\r\n", b""), (PrologixGPIBTransport, b"\n", STARTUP), (_SerialTransport, b"\n", b"")],
 )
 async def test_serial_exchange(transport_type: type[RS232Transport], terminator: bytes, startup: bytes) -> None:
     """Verify initialization, framing, fragmented input and replies received before reads."""

@@ -1,0 +1,173 @@
+OWON OWH9830 power meter
+------------------------
+
+Connect directly to the meter's RS-232 port with SCPI selected and matching
+baud rate (default 115200, 8N1)::
+
+    from scpi.devices.owh9830 import serial
+    from scpi.wrapper import AIOWrapper
+
+    dev = AIOWrapper(serial("/dev/tty.usbserial-A92TRYDJ"))
+    try:
+        volts = dev.measure_voltage("1A")
+        amps = dev.measure_current("1A")
+        degrees = dev.measure_phase_angle("1A")
+        watts = dev.measure_real_power("1A")
+        var = dev.measure_reactive_power("1A")
+        harmonics = dev.measure_harmonics("1A", max_order=7)
+    finally:
+        dev.quit()
+
+Measurements return ``Decimal`` values. Elements are ``1A``, ``1B``, ``1C``
+and ``1sigma`` (case insensitive). Harmonics support individual phases only;
+``voltage`` and ``current`` tuples contain RMS amplitudes in volts and amps,
+starting with the fundamental at index zero, through ``max_order`` (1--63).
+Harmonic reads enable harmonic measurement mode and leave it enabled so data
+keeps updating; scalar measurements also work in this mode. The first read waits
+one update period after switching modes or requesting more than ten orders.
+Orders 1--10 use one range command and two list queries. Reads update the display
+order range. Higher orders use two queries per order because firmware V1.2.0
+truncates long list replies and can omit separators. Unavailable individual
+readings (``----``) are returned as ``None``
+in their order's position. Reads do not guarantee an atomic snapshot.
+
+``OWH9830(transport)`` also accepts existing transports/protocols for async use.
+Commands are spaced by more than 100 ms. Generic ``SYST:ERR?`` checks are
+disabled because this command is unsupported. Blank or malformed measurements
+raise ``ValueError``; if replies are blank, check the front-panel LOCAL state.
+Use one device instance per meter. The interactive example is::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --max-order 7
+
+Held measurement sets
+---------------------
+
+Use ``measure_snapshot`` for voltage, current, phase angle and real/reactive power
+from the same held set of meter-reported values::
+
+    single = dev.measure_snapshot("1A")
+    all_phases = dev.measure_snapshot("1A-C")
+    print(single["1A"]["voltage"])
+    print(all_phases["1B"]["phase_angle"])
+
+Use ``measure_harmonic_snapshot`` to read scalars and harmonics up to 10th order
+(1--10) under the same held set::
+
+    harmonic_snap = dev.measure_harmonic_snapshot("1A", max_order=10)
+    print(harmonic_snap["1A"]["harmonics"]["voltage"])
+
+The result always maps element names to dictionaries containing ``voltage`` (V),
+``current`` (A), ``phase_angle`` (degrees), ``real_power`` (W) and
+``reactive_power`` (var), and optionally ``harmonics`` (tuples of ``voltage`` and
+``current`` harmonics). Single ``1A``, ``1B``, ``1C`` and ``1sigma`` selections
+are supported for scalar snapshots, and ``1A``, ``1B``, ``1C`` and ``1A-C`` for
+harmonic snapshots. Inputs are case insensitive; returned names are canonical.
+Values are ``Decimal`` or ``None`` for unavailable readings (``----``),
+including phase/power on unconnected phases.
+
+The method configures the numeric display page once per selection (five slots
+in 8ITEM or fifteen in 16ITEM) and harmonic order range, then reuses it for
+repeated polls. It queries the current HOLD state, enables HOLD if necessary,
+reads the configured slots and harmonic lists, and restores HOLD in a ``finally``
+block. It waits one configured update period plus 110 ms after setup or its
+previous HOLD release so rapid polling permits new frames to update. An existing
+HOLD ON stays ON and returns its already-held values for the same selection.
+Changing selection while HOLD is already ON raises ``ValueError``; release HOLD
+first. The entire sequence excludes other I/O through the same device instance.
+Measurement mode is preserved or switched to ``HARMONIC`` when harmonics are
+requested.
+
+The numeric display configuration remains selected after the call. This API owns
+those slots while polling; changing them on the front panel or through another
+protocol/transport instance requires a new device instance before polling again.
+Numeric, harmonic, and update-rate commands sent through ``dev.command``
+invalidate the cached selection.
+The method does not change update rate or guarantee new data on every poll.
+HOLD stabilizes reported readings; simultaneous ADC acquisition across channels
+has not been established.
+
+The interactive all-phase and harmonic examples are::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --element 1A-C
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --harmonics
+
+Streaming snapshots
+-------------------
+
+Use ``measure_snapshots`` (or ``stream_snapshots``) to stream snapshot measurements
+as fast as possible via an async iterator without toggling HOLD on each frame::
+
+    async for snapshot in dev.measure_snapshots("1A"):
+        print(snapshot["1A"]["voltage"], snapshot["1A"]["current"])
+
+Use ``measure_harmonic_snapshots`` (or ``stream_harmonic_snapshots``) to stream
+snapshots including harmonics up to order 10::
+
+    async for snapshot in dev.measure_harmonic_snapshots("1A", max_order=10):
+        print(snapshot["1A"]["voltage"], snapshot["1A"]["harmonics"]["voltage"])
+
+Synchronous code using ``AIOWrapper`` supports streaming using a standard ``for`` loop::
+
+    for snapshot in dev.measure_snapshots("1A"):
+        print(snapshot["1A"])
+
+    for snapshot in dev.measure_harmonic_snapshots("1A"):
+        print(snapshot["1A"]["harmonics"])
+
+The iterator configures the numeric display page slots and harmonic settings
+once at stream start. While the iterator is active, commands that modify
+instrument setup (such as harmonic measurements, single snapshots, or ``:NUM``,
+``:RATE``, ``*RST``, ``:DISP:MOD``, ``:HOLD``, and ``:HARM:ORD`` configuration
+commands) refuse to execute and raise ``RuntimeError`` to prevent configuration
+conflicts. Read-only queries (e.g. ``measure_voltage`` or ``ask``) execute
+safely between polls.
+
+The interactive examples are::
+
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5
+    uv run --locked python examples/owh9830_serial.py /dev/tty.usbserial-A92TRYDJ --stream 5 --harmonics
+    uv run --locked python examples/owh9830_async_stream.py /dev/tty.usbserial-A92TRYDJ --count 5 --harmonics 10
+
+Batching experiments
+--------------------
+
+Tested on 2026-10-02 with OWH9830 firmware V1.2.0, RS-232 115200 8N1,
+0.5-second update period, a heater on 1A and unconnected 1B/1C. All experiment
+display configurations and HOLD states were restored afterward.
+
+Compound queries separated by semicolons returned only the first voltage
+response, even when current, phase and both powers followed. Numeric bulk reads
+returned correctly ordered values, with no meaningful extra latency from powers:
+
+======================== ================ ==================
+Selection                Quantities       Median reply time
+======================== ================ ==================
+1A                       V/I/phase        23.50 ms
+1A                       V/I/phase/P/Q    23.68 ms
+1A-C                     V/I/phase        33.48 ms
+1A-C                     V/I/phase/P/Q    34.10 ms
+======================== ================ ==================
+
+These are five-sample command-to-complete-response medians, excluding setup,
+command-spacing waits and HOLD operations. A separate ten-sample comparison of
+15-value reads measured 34.63 ms in NORM mode and 34.10 ms in HARMONIC mode;
+normal mode provided no clear benefit. Numeric data continued updating in both.
+HOLD ON produced identical repeated bulk readings and matching direct readings;
+HOLD OFF resumed updates. Bulk phase readings have more digits than the direct
+phase query, which reports one decimal place.
+
+Repeated ``measure_snapshot`` calls, including HOLD and pacing, measured about
+833 ms per call at the 0.5-second update period for both 1A and 1A-C, excluding
+initial configuration. Five consecutive calls returned five distinct sets for
+each selection. Temporarily selecting a 0.1-second update period reduced the
+all-phase median to 444 ms, but five calls returned only two distinct sets.
+Faster polling therefore does not establish a higher acquisition rate.
+
+Stress tests confirmed a 128-byte output limit, including LF, for numeric bulk
+replies as well as harmonic lists. Truncation can leave a plausible partial number,
+so field counts alone cannot detect it. The snapshot method treats a response at
+that limit as suspect and reads each selected measurement using direct
+``:MEAS:...`` queries under the same HOLD. Indexed numeric-slot queries disagreed
+with the bulk data in a stress test and are therefore avoided. The fallback adds
+round trips and uses the direct phase query's one-decimal precision while
+preserving the held set.

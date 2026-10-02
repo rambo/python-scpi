@@ -65,3 +65,50 @@ def test_shared_loop() -> None:
         assert controller.identify() == "instrument"
     finally:
         controller.quit()
+
+
+def test_wrapper_async_iterator() -> None:
+    """Async iterators can be used synchronously via the wrapper."""
+
+    class StreamDevice(Device):
+        def stream(self):
+            class AsyncIter:
+                def __init__(self, dev: Device) -> None:
+                    self.dev = dev
+                    self.count = 0
+                    self.closed = False
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    if self.closed or self.count >= 3:
+                        raise StopAsyncIteration
+                    self.dev.loops.append(asyncio.get_running_loop())
+                    self.count += 1
+                    return self.count
+
+                async def aclose(self):
+                    self.closed = True
+
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, *args: object):
+                    await self.aclose()
+
+            return AsyncIter(self)
+
+    device = StreamDevice()
+    wrapper = AIOWrapper(device)
+    try:
+        results = []
+        for item in wrapper.stream():
+            results.append(item)
+        assert results == [1, 2, 3]
+
+        # Context manager and close
+        with wrapper.stream() as it:
+            assert next(it) == 1
+    finally:
+        wrapper.quit()

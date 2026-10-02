@@ -1,6 +1,11 @@
 # IDE settings
 .idea
 
+
+docs/*.pdf
+**/*handoff.md
+
+
 # ci artefacts
 pytest*.xml
 
